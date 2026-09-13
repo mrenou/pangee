@@ -28,13 +28,13 @@ réexporter la même sélection produit une carte différente — c'est l'intér
 
 ## Décorations optionnelles
 
-| Décoration | Contenu |
-|---|---|
-| Cartouche de titre | Titre libre, en police serif, encadré dans un coin |
-| Rose des vents | Orientation nord en haut (projection équirectangulaire) |
-| Échelle | Barre graduée en kilomètres, calculée depuis le rayon planétaire |
-| Date de campagne | Jours depuis le Cataclysme, ou libellé libre |
-| Bordure | Filet d'encre autour de l'image |
+| Décoration         | Contenu                                                          |
+| ------------------ | ---------------------------------------------------------------- |
+| Cartouche de titre | Titre libre, en police serif, encadré dans un coin               |
+| Rose des vents     | Orientation nord en haut (projection équirectangulaire)          |
+| Échelle            | Barre graduée en kilomètres, calculée depuis le rayon planétaire |
+| Date de campagne   | Jours depuis le Cataclysme, ou libellé libre                     |
+| Bordure            | Filet d'encre autour de l'image                                  |
 
 L'échelle utilise `radiusKm` : un degré de latitude vaut `π · R / 180` km, un degré de longitude à la latitude
 φ vaut `π · R · cos φ / 180` km. La barre est calibrée sur la latitude médiane du rectangle et n'est donc

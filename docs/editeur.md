@@ -12,12 +12,12 @@ cohérent à toutes les autres dates.
 
 ### Chaîne de conversion
 
-| Étape | Entrée | Sortie |
-|---|---|---|
-| 1. Caméra | point écran, en pixels | `(lonWorld, lat)` |
-| 2. `ringOf(lat)` | `lat`, `RingConfig` | `RingId` |
+| Étape               | Entrée                       | Sortie                          |
+| ------------------- | ---------------------------- | ------------------------------- |
+| 1. Caméra           | point écran, en pixels       | `(lonWorld, lat)`               |
+| 2. `ringOf(lat)`    | `lat`, `RingConfig`          | `RingId`                        |
 | 3. Décalage inverse | `lonWorld`, anneau, date `t` | `lonLocal = lonWorld − Δλ_r(t)` |
-| 4. Indexation | `(lonLocal, lat)` | `x`, `y`, index `y * width + x` |
+| 4. Indexation       | `(lonLocal, lat)`            | `x`, `y`, index `y * width + x` |
 
 ```ts
 function screenToLocal(p: ScreenPoint, cam: Camera, cfg: RingConfig, t: number): LocalPoint {
@@ -44,12 +44,12 @@ continu à l'écran et discontinu dans le raster local — c'est le comportement
 
 Écrit dans `height` (Float32, mètres, négatif = sous la mer).
 
-| Mode | Effet sur une cellule de poids `w` | Paramètre propre |
-|---|---|---|
-| `raise` | `h += strength · w` | — |
-| `lower` | `h −= strength · w` | — |
-| `smooth` | `h += (moyenne du voisinage − h) · strength · w` | rayon du noyau |
-| `flatten` | `h += (targetM − h) · strength · w` | `targetM`, altitude cible (par défaut prélevée au premier clic) |
+| Mode      | Effet sur une cellule de poids `w`               | Paramètre propre                                                |
+| --------- | ------------------------------------------------ | --------------------------------------------------------------- |
+| `raise`   | `h += strength · w`                              | —                                                               |
+| `lower`   | `h −= strength · w`                              | —                                                               |
+| `smooth`  | `h += (moyenne du voisinage − h) · strength · w` | rayon du noyau                                                  |
+| `flatten` | `h += (targetM − h) · strength · w`              | `targetM`, altitude cible (par défaut prélevée au premier clic) |
 
 Paramètres communs : `radius` (en cellules, affiché aussi en kilomètres via le rayon planétaire), `strength`,
 `falloff` (atténuation radiale `w = f(d / radius)`, du bord dur au très doux).
@@ -105,8 +105,11 @@ Pile de commandes ; chaque commande porte `apply` et `revert` et connaît son co
 ```ts
 interface RasterPatch {
   layer: 'height' | 'biomeOverride' | 'fog' | 'urban';
-  x: number; y: number; w: number; h: number; // bbox en cellules locales, wrap en x autorisé
-  before: Float32Array | Uint8Array;          // w · h valeurs, ligne par ligne
+  x: number;
+  y: number;
+  w: number;
+  h: number; // bbox en cellules locales, wrap en x autorisé
+  before: Float32Array | Uint8Array; // w · h valeurs, ligne par ligne
   after: Float32Array | Uint8Array;
 }
 

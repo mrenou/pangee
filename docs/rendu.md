@@ -6,14 +6,14 @@
 
 Le pipeline empile, du fond vers la surface :
 
-| Couche | Technique | Source |
-|---|---|---|
-| Terrain (relief, mer, biomes, hachures de côte) | Un quad plein écran, un shader GLSL custom | Textures `height`, `biomeOverride`, `waterLevel`, `flowAcc`, `biome` |
-| Rivières et lacs | Tracés à l'encre, largeur variable | `flowAcc`, `flowDir`, `lakeId` |
-| Symboles (montagnes, collines, forêts, marais) | Sprites instanciés depuis un atlas SVG | `height`, `biome` |
-| Routes | Polylignes pleines ou pointillées | `Road[]` |
-| Lieux et libellés | Icônes + texte serif | `Place[]` |
-| Décorations | Ligne de faille, cartouche, rose des vents, échelle, brouillard | Config et masque `fog` |
+| Couche                                          | Technique                                                       | Source                                                               |
+| ----------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Terrain (relief, mer, biomes, hachures de côte) | Un quad plein écran, un shader GLSL custom                      | Textures `height`, `biomeOverride`, `waterLevel`, `flowAcc`, `biome` |
+| Rivières et lacs                                | Tracés à l'encre, largeur variable                              | `flowAcc`, `flowDir`, `lakeId`                                       |
+| Symboles (montagnes, collines, forêts, marais)  | Sprites instanciés depuis un atlas SVG                          | `height`, `biome`                                                    |
+| Routes                                          | Polylignes pleines ou pointillées                               | `Road[]`                                                             |
+| Lieux et libellés                               | Icônes + texte serif                                            | `Place[]`                                                            |
+| Décorations                                     | Ligne de faille, cartouche, rose des vents, échelle, brouillard | Config et masque `fog`                                               |
 
 ## Référentiels et textures : le point central
 
@@ -87,17 +87,17 @@ Le `step` évite une divergence de branche sur le quad. En pratique le shader é
 
 Palette volontairement limitée, exposée comme jeu de tokens (CSS custom properties côté UI, constantes GLSL côté shader) pour éviter le rendu « plastique ». Valeurs indicatives, à figer en phase 3 :
 
-| Token | Rôle | Indicatif |
-|---|---|---|
-| `ink` | Traits, côtes, rivières, libellés | `#2b2119` |
-| `ink-soft` | Hachures, ombrage léger | `#6b5b4a` |
-| `parchment` | Fond de carte | `#e9dcbe` |
-| `parchment-shade` | Vignette, bords | `#cdba94` |
-| `sea-shallow` | Plateau continental | `#a9bcc2` |
-| `sea-deep` | Grands fonds | `#6f8794` |
-| `land-low` | Plaines | `#c9c39a` |
-| `land-high` | Plateaux, montagnes | `#b39d78` |
-| `forest` | Vert éteint | `#7d8b6a` |
+| Token             | Rôle                              | Indicatif |
+| ----------------- | --------------------------------- | --------- |
+| `ink`             | Traits, côtes, rivières, libellés | `#2b2119` |
+| `ink-soft`        | Hachures, ombrage léger           | `#6b5b4a` |
+| `parchment`       | Fond de carte                     | `#e9dcbe` |
+| `parchment-shade` | Vignette, bords                   | `#cdba94` |
+| `sea-shallow`     | Plateau continental               | `#a9bcc2` |
+| `sea-deep`        | Grands fonds                      | `#6f8794` |
+| `land-low`        | Plaines                           | `#c9c39a` |
+| `land-high`       | Plateaux, montagnes               | `#b39d78` |
+| `forest`          | Vert éteint                       | `#7d8b6a` |
 
 Aucune couleur saturée, aucun dégradé long : les variations viennent des symboles et des hachures, pas de la couleur.
 

@@ -8,11 +8,11 @@ Le code correspondant vit dans `src/model/`, pur, sans DOM ni Pixi.
 
 Pangée est traitée comme un **cylindre** déroulé en projection équirectangulaire :
 
-| Grandeur | Domaine | Remarque |
-|---|---|---|
-| Longitude `lon` | `[-180, 180[` | **wrap** : `-180` et `+180` sont le même méridien |
-| Latitude `lat` | `[-90, 90]` | pas de wrap, on **clamp** |
-| Rayon `radiusKm` | configurable, défaut `6371` | sert aux conversions °/jour ↔ km/jour |
+| Grandeur         | Domaine                     | Remarque                                          |
+| ---------------- | --------------------------- | ------------------------------------------------- |
+| Longitude `lon`  | `[-180, 180[`               | **wrap** : `-180` et `+180` sont le même méridien |
+| Latitude `lat`   | `[-90, 90]`                 | pas de wrap, on **clamp**                         |
+| Rayon `radiusKm` | configurable, défaut `6371` | sert aux conversions °/jour ↔ km/jour             |
 
 La déformation aux pôles est assumée : c'est une carte de roman, pas un atlas. Les distances
 affichées à l'utilisateur sont calculées à la latitude concernée :
@@ -70,14 +70,14 @@ type RingId = 'north' | 'equator' | 'south';
 
 interface Ring {
   readonly id: RingId;
-  readonly omegaDegPerDay: number;   // signé ; 0 = anneau immobile
+  readonly omegaDegPerDay: number; // signé ; 0 = anneau immobile
 }
 
 interface RingConfig {
-  readonly cutNorthLat: number;      // frontière nord/équateur
-  readonly cutSouthLat: number;      // frontière équateur/sud
+  readonly cutNorthLat: number; // frontière nord/équateur
+  readonly cutSouthLat: number; // frontière équateur/sud
   readonly rings: Readonly<Record<RingId, Ring>>;
-  readonly t0: number;               // date du Cataclysme, défaut 0
+  readonly t0: number; // date du Cataclysme, défaut 0
 }
 ```
 
@@ -97,13 +97,13 @@ villes coupées en deux, routes tranchées, falaises de faille.
 
 ### Invariants
 
-| Invariant | Vérification |
-|---|---|
-| `cutSouthLat < cutNorthLat` | validé à la construction et à l'import |
-| `cutSouthLat` et `cutNorthLat` dans `]-90, 90[` | un anneau ne peut pas être vide |
-| Un `Place` appartient à exactement un anneau | `ringId === ringOf(lat)` |
-| Un `Road` appartient à exactement un anneau | scission à la création, voir plus bas |
-| `omegaDegPerDay` fini | `Number.isFinite` |
+| Invariant                                       | Vérification                           |
+| ----------------------------------------------- | -------------------------------------- |
+| `cutSouthLat < cutNorthLat`                     | validé à la construction et à l'import |
+| `cutSouthLat` et `cutNorthLat` dans `]-90, 90[` | un anneau ne peut pas être vide        |
+| Un `Place` appartient à exactement un anneau    | `ringId === ringOf(lat)`               |
+| Un `Road` appartient à exactement un anneau     | scission à la création, voir plus bas  |
+| `omegaDegPerDay` fini                           | `Number.isFinite`                      |
 
 ## Couches raster
 
@@ -111,12 +111,12 @@ Toutes en **référentiel local**, couvrant la planète entière, indexées `y *
 Résolution de base `2048 × 1024`, option `4096 × 2048`. Voir [les conventions](conventions.md)
 pour les règles d'accès (`idx`, `wrapX`, zéro allocation en boucle chaude).
 
-| Couche | Type | Résolution | Rôle |
-|---|---|---|---|
-| `height` | `Float32Array` | pleine | altitude en mètres ; **négatif = sous le niveau de la mer** |
-| `biomeOverride` | `Uint8Array` | pleine | `0` = biome automatique, sinon biome forcé par le MJ |
-| `urban` | `Uint8Array` | pleine | emprise bâtie (v1.1) ; c'est ce qui permet la ville coupée en deux |
-| `fog` | `Uint8Array` | basse | brouillard de guerre, `0` = inconnu, `255` = révélé — voir [le partage](partage.md) |
+| Couche          | Type           | Résolution | Rôle                                                                                |
+| --------------- | -------------- | ---------- | ----------------------------------------------------------------------------------- |
+| `height`        | `Float32Array` | pleine     | altitude en mètres ; **négatif = sous le niveau de la mer**                         |
+| `biomeOverride` | `Uint8Array`   | pleine     | `0` = biome automatique, sinon biome forcé par le MJ                                |
+| `urban`         | `Uint8Array`   | pleine     | emprise bâtie (v1.1) ; c'est ce qui permet la ville coupée en deux                  |
+| `fog`           | `Uint8Array`   | basse      | brouillard de guerre, `0` = inconnu, `255` = révélé — voir [le partage](partage.md) |
 
 `height` est stocké en mètres réels et non en valeur normalisée : le niveau de la mer
 (`seaLevelM`) est un réglage indépendant, et le déplacer doit changer le trait de côte sans
@@ -129,11 +129,11 @@ procéduralement dans le shader au zoom, voir [le rendu](rendu.md).
 
 Recalculées, jamais persistées, exprimées en **référentiel monde** pour la date courante :
 
-| Couche | Produite par | Contenu |
-|---|---|---|
-| `heightWorld` | assemblage | `height` avec chaque bande décalée de `Δλ_r(t)` |
-| `waterLevel`, `flowAcc`, `flowDir`, `lakeId` | `src/hydro/` | voir [l'hydrologie](hydrologie.md) |
-| `biome` | `src/climate/` | température (latitude + altitude), humidité (distance à l'eau + bruit), `biomeOverride` prioritaire |
+| Couche                                       | Produite par   | Contenu                                                                                             |
+| -------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------- |
+| `heightWorld`                                | assemblage     | `height` avec chaque bande décalée de `Δλ_r(t)`                                                     |
+| `waterLevel`, `flowAcc`, `flowDir`, `lakeId` | `src/hydro/`   | voir [l'hydrologie](hydrologie.md)                                                                  |
+| `biome`                                      | `src/climate/` | température (latitude + altitude), humidité (distance à l'eau + bruit), `biomeOverride` prioritaire |
 
 L'assemblage arrondit le décalage à la cellule pour le calcul CPU ; le rendu, lui, applique un
 décalage **flottant exact** dans le shader. Cette asymétrie est délibérée et documentée dans
@@ -149,7 +149,7 @@ type PlaceKind = 'city' | 'town' | 'village' | 'ruin' | 'fortress' | 'volcano' |
 interface Place {
   readonly id: string;
   readonly ringId: RingId;
-  readonly lon: number;              // lonLocal
+  readonly lon: number; // lonLocal
   readonly lat: number;
   readonly name: string;
   readonly kind: PlaceKind;
@@ -160,7 +160,7 @@ interface Place {
 interface Road {
   readonly id: string;
   readonly ringId: RingId;
-  readonly points: readonly (readonly [number, number])[];   // [lonLocal, lat]
+  readonly points: readonly (readonly [number, number])[]; // [lonLocal, lat]
   readonly kind: 'road' | 'path' | 'sea-route';
 }
 ```

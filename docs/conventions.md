@@ -28,10 +28,10 @@ complétée par les règles propres au projet listées plus bas.
 ```jsonc
 {
   "strict": true,
-  "noUncheckedIndexedAccess": true,     // arr[i] est T | undefined
-  "exactOptionalPropertyTypes": true,   // ?: T n'accepte pas undefined explicite
+  "noUncheckedIndexedAccess": true, // arr[i] est T | undefined
+  "exactOptionalPropertyTypes": true, // ?: T n'accepte pas undefined explicite
   "noImplicitOverride": true,
-  "verbatimModuleSyntax": true
+  "verbatimModuleSyntax": true,
 }
 ```
 
@@ -121,7 +121,7 @@ type Result<T, E = string> = { ok: true; value: T } | { ok: false; error: E };
 - **ESLint + Prettier**, exécutés en CI ; le formatage n'est pas un sujet de revue.
 - Imports absolus `@/…` (alias Vite + `tsconfig`), pas de `../../..`.
 - **Conventional Commits** : `feat(hydro): priority-flood avec wrap horizontal`. Le corps explique
-  le *pourquoi* quand il n'est pas évident, jamais le *quoi* — le diff le dit déjà.
+  le _pourquoi_ quand il n'est pas évident, jamais le _quoi_ — le diff le dit déjà.
 - Un commit = une unité cohérente livrée. Pas de commit « WIP » multi-sujets.
 - Un changement de comportement et la mise à jour de sa documentation `docs/` vont **dans le même
   commit**.

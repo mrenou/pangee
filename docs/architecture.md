@@ -13,18 +13,18 @@ de schéma relationnel.
 
 ## Dossiers
 
-| Dossier | Responsabilité | Dépendances autorisées |
-|---|---|---|
-| `src/model/` | Types, anneaux, coordonnées, conversions local ↔ monde, format `.pangee` | aucune (pur) |
-| `src/gen/` | Génération procédurale d'un monde depuis une seed | `model` |
-| `src/hydro/` | Assemblage, priority-flood, D8, accumulation, lacs | `model` |
-| `src/climate/` | Température, humidité, biomes dérivés | `model` |
-| `src/render/` | PixiJS, shader terrain, symboles, libellés, export PNG | `model`, Pixi |
-| `src/edit/` | Outils d'édition, commandes, undo/redo | `model`, `store` |
-| `src/ui/` | Panneaux React | tout, mais aucune logique métier |
-| `src/store/` | État Zustand, autosave | `model` |
-| `src/workers/` | Points d'entrée Comlink des workers | `gen`, `hydro`, `climate` |
-| `src/assets/` | SVG dessinés main, polices OFL, textures de parchemin | — |
+| Dossier        | Responsabilité                                                           | Dépendances autorisées           |
+| -------------- | ------------------------------------------------------------------------ | -------------------------------- |
+| `src/model/`   | Types, anneaux, coordonnées, conversions local ↔ monde, format `.pangee` | aucune (pur)                     |
+| `src/gen/`     | Génération procédurale d'un monde depuis une seed                        | `model`                          |
+| `src/hydro/`   | Assemblage, priority-flood, D8, accumulation, lacs                       | `model`                          |
+| `src/climate/` | Température, humidité, biomes dérivés                                    | `model`                          |
+| `src/render/`  | PixiJS, shader terrain, symboles, libellés, export PNG                   | `model`, Pixi                    |
+| `src/edit/`    | Outils d'édition, commandes, undo/redo                                   | `model`, `store`                 |
+| `src/ui/`      | Panneaux React                                                           | tout, mais aucune logique métier |
+| `src/store/`   | État Zustand, autosave                                                   | `model`                          |
+| `src/workers/` | Points d'entrée Comlink des workers                                      | `gen`, `hydro`, `climate`        |
+| `src/assets/`  | SVG dessinés main, polices OFL, textures de parchemin                    | —                                |
 
 ### Règle de dépendance
 
@@ -79,11 +79,11 @@ de date décale les bandes immédiatement, et l'eau rattrape 150 ms plus tard. V
 
 ## Threads
 
-| Thread | Ce qui s'y passe |
-|---|---|
-| Principal | React, Zustand, boucle de rendu Pixi, saisie, outils d'édition |
-| Worker `hydro` | Assemblage + hydrologie + climat, appelé en debounce |
-| Worker `gen` | Génération procédurale, appelée à la demande |
+| Thread         | Ce qui s'y passe                                               |
+| -------------- | -------------------------------------------------------------- |
+| Principal      | React, Zustand, boucle de rendu Pixi, saisie, outils d'édition |
+| Worker `hydro` | Assemblage + hydrologie + climat, appelé en debounce           |
+| Worker `gen`   | Génération procédurale, appelée à la demande                   |
 
 Les workers sont exposés via **Comlink** : `src/workers/` ne contient que les points d'entrée et
 la déclaration des méthodes, la logique restant dans les modules purs correspondants. Les
@@ -96,13 +96,13 @@ l'interface, voir [les conventions](conventions.md).
 
 ## CPU contre GPU
 
-| Sur GPU | Sur CPU |
-|---|---|
-| Colorisation du terrain, ombrage | Assemblage, hydrologie, climat |
-| Décalage des anneaux (uniforme) | Génération procédurale |
-| Micro-détail procédural au zoom | Placement des symboles et des libellés |
-| Hachures de côte, grain, vignette | Undo/redo, persistance |
-| Rendu hors écran pour l'export PNG | Découpe des routes, magnétisme |
+| Sur GPU                            | Sur CPU                                |
+| ---------------------------------- | -------------------------------------- |
+| Colorisation du terrain, ombrage   | Assemblage, hydrologie, climat         |
+| Décalage des anneaux (uniforme)    | Génération procédurale                 |
+| Micro-détail procédural au zoom    | Placement des symboles et des libellés |
+| Hachures de côte, grain, vignette  | Undo/redo, persistance                 |
+| Rendu hors écran pour l'export PNG | Découpe des routes, magnétisme         |
 
 La règle : ce qui est **par pixel et sans mémoire** va sur GPU, ce qui est **global et itératif**
 reste sur CPU.
@@ -116,10 +116,10 @@ Deux mécanismes complémentaires, décrits dans [le format de fichier](fichier-
 
 ## Tests
 
-| Niveau | Outil | Cible |
-|---|---|---|
-| Unitaire | Vitest | `model`, `hydro`, `climate`, `gen` — grilles jouets, invariants |
-| Fumée | Playwright | l'application démarre, le canvas s'affiche, le curseur de date répond |
+| Niveau   | Outil      | Cible                                                                 |
+| -------- | ---------- | --------------------------------------------------------------------- |
+| Unitaire | Vitest     | `model`, `hydro`, `climate`, `gen` — grilles jouets, invariants       |
+| Fumée    | Playwright | l'application démarre, le canvas s'affiche, le curseur de date répond |
 
 Les modules purs sont la zone où l'on investit en tests, parce qu'ils encodent les invariants du
 monde et qu'une régression y est invisible à l'œil nu sur une carte.

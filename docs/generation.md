@@ -11,14 +11,14 @@ Le monde de départ est produit par `src/gen/`, exécuté dans un Web Worker et 
 
 ## Paramètres exposés
 
-| Paramètre | Type | Défaut | Effet |
-|---|---|---|---|
-| `seed` | `string \| number` | tirée au lancement | Détermine tout ; affichée et copiable dans l'UI |
-| `continentCount` | `number` (2–8) | 4 | Fréquence du masque continental |
-| `continentSize` | `number` (0–1) | 0.5 | Seuil du masque : part de terres émergées |
-| `roughness` | `number` (0–1) | 0.5 | Persistance du fBm de détail ; côtes et crêtes plus ou moins découpées |
-| `seaLevel` | `number` (m) | 0 | Niveau de la mer ; modifiable ensuite sans régénérer |
-| `placeDensity` | `number` (0–1) | 0.5 | Cible de lieux, de ~50 à ~150 |
+| Paramètre        | Type               | Défaut             | Effet                                                                  |
+| ---------------- | ------------------ | ------------------ | ---------------------------------------------------------------------- |
+| `seed`           | `string \| number` | tirée au lancement | Détermine tout ; affichée et copiable dans l'UI                        |
+| `continentCount` | `number` (2–8)     | 4                  | Fréquence du masque continental                                        |
+| `continentSize`  | `number` (0–1)     | 0.5                | Seuil du masque : part de terres émergées                              |
+| `roughness`      | `number` (0–1)     | 0.5                | Persistance du fBm de détail ; côtes et crêtes plus ou moins découpées |
+| `seaLevel`       | `number` (m)       | 0                  | Niveau de la mer ; modifiable ensuite sans régénérer                   |
+| `placeDensity`   | `number` (0–1)     | 0.5                | Cible de lieux, de ~50 à ~150                                          |
 
 `seaLevel` n'est pas cuit dans `height` : il reste un paramètre du monde, relu par l'hydrologie à chaque date.
 
@@ -29,8 +29,8 @@ Aucun appel à `Math.random` dans `src/gen/`. Un PRNG explicite est semé depuis
 ```ts
 type GenDomain = 'relief' | 'places' | 'roads' | 'names';
 
-function hashSeed(seed: string | number, domain: GenDomain): number;   // FNV-1a sur `${seed}:${domain}`
-function mulberry32(state: number): () => number;                      // PRNG 32 bits, rapide, sans dépendance
+function hashSeed(seed: string | number, domain: GenDomain): number; // FNV-1a sur `${seed}:${domain}`
+function mulberry32(state: number): () => number; // PRNG 32 bits, rapide, sans dépendance
 
 const rngRelief = mulberry32(hashSeed(seed, 'relief'));
 const rngPlaces = mulberry32(hashSeed(seed, 'places'));
@@ -52,7 +52,12 @@ function sampleCylinder(noise3D: Noise3D, lonDeg: number, latDeg: number, f: num
 Le fBm empile les octaves par-dessus cet échantillonnage :
 
 ```ts
-interface FbmParams { octaves: number; frequency: number; lacunarity: number; persistence: number; }
+interface FbmParams {
+  octaves: number;
+  frequency: number;
+  lacunarity: number;
+  persistence: number;
+}
 // défaut relief : { octaves: 7, frequency: 1.6, lacunarity: 2.0, persistence: 0.45 + 0.25 * roughness }
 ```
 
@@ -60,15 +65,16 @@ interface FbmParams { octaves: number; frequency: number; lacunarity: number; pe
 
 ## Formation des continents
 
-1. **Masque continental** : fBm basse fréquence (3 octaves, fréquence ∝ `continentCount`) avec *domain warping* léger pour casser la rondeur des taches. Seuil piloté par `continentSize`.
+1. **Masque continental** : fBm basse fréquence (3 octaves, fréquence ∝ `continentCount`) avec _domain warping_ léger pour casser la rondeur des taches. Seuil piloté par `continentSize`.
 2. **Détail** : fBm haute fréquence (7 octaves) modulé par `roughness`, ajouté avec un poids d'environ 0.3, lui-même masqué par le masque continental pour que l'océan reste lisse.
 3. **Redistribution** : la somme brute est ramenée dans `[−1, 1]` puis passée dans une courbe puissance, séparément pour les terres et pour les fonds marins :
 
 ```ts
-const e = continental * 0.7 + detail * 0.3;            // ∈ [-1, 1]
-const height = e >= 0
-  ? Math.pow(e, LAND_EXP) * MAX_ALTITUDE               // LAND_EXP ≈ 2.2
-  : -Math.pow(-e, OCEAN_EXP) * MAX_DEPTH;              // OCEAN_EXP ≈ 1.4
+const e = continental * 0.7 + detail * 0.3; // ∈ [-1, 1]
+const height =
+  e >= 0
+    ? Math.pow(e, LAND_EXP) * MAX_ALTITUDE // LAND_EXP ≈ 2.2
+    : -Math.pow(-e, OCEAN_EXP) * MAX_DEPTH; // OCEAN_EXP ≈ 1.4
 ```
 
 Un exposant terrestre > 1 écrase les valeurs médianes : on obtient de larges plaines côtières et des plateaux, les sommets restant rares. Un exposant océanique plus faible donne un plateau continental court puis des grands fonds. Valeurs indicatives : `MAX_ALTITUDE` 6000 m, `MAX_DEPTH` 8000 m.

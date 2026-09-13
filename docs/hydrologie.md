@@ -110,13 +110,13 @@ Tout seuil ajouté ici doit suivre la même règle.
 Un lac est une composante connexe de cellules où `filled > heightWorld + ε`, hors océan. Pour
 chacun on produit :
 
-| Donnée | Calcul |
-|---|---|
-| `lakeId` | index de composante, `0` = pas de lac |
-| niveau | valeur de `filled` sur la composante (constante par construction) |
-| surface | nombre de cellules × surface de cellule à la latitude |
-| exutoire | la cellule de col par laquelle la composante déborde |
-| débit entrant | somme des `flowAcc` entrant dans la composante |
+| Donnée        | Calcul                                                            |
+| ------------- | ----------------------------------------------------------------- |
+| `lakeId`      | index de composante, `0` = pas de lac                             |
+| niveau        | valeur de `filled` sur la composante (constante par construction) |
+| surface       | nombre de cellules × surface de cellule à la latitude             |
+| exutoire      | la cellule de col par laquelle la composante déborde              |
+| débit entrant | somme des `flowAcc` entrant dans la composante                    |
 
 `waterLevel` fusionne mer et lacs en une seule couche pour le rendu : altitude de la surface
 d'eau, ou sentinelle si la cellule est sèche.
@@ -137,10 +137,10 @@ décrit dans [le rendu](rendu.md).
 
 ## Budget de performance
 
-| Grille | Cellules | Cible |
-|---|---|---|
-| 2048 × 1024 | 2,1 M | 0,3 – 0,6 s en JS, dans un worker |
-| 4096 × 2048 | 8,4 M | ~2 s, option assumée |
+| Grille      | Cellules | Cible                             |
+| ----------- | -------- | --------------------------------- |
+| 2048 × 1024 | 2,1 M    | 0,3 – 0,6 s en JS, dans un worker |
+| 4096 × 2048 | 8,4 M    | ~2 s, option assumée              |
 
 Règles pour tenir ce budget, en complément des [conventions](conventions.md) :
 

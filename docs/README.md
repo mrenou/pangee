@@ -21,15 +21,15 @@ Pour découvrir le projet, dans cet ordre :
 
 Puis, par sujet :
 
-| Document | Sujet |
-|---|---|
-| [hydrologie.md](hydrologie.md) | Océans, remplissage des dépressions, rivières, lacs, cascades |
-| [generation.md](generation.md) | Génération procédurale : seed, bruit, continents, villes, noms |
-| [rendu.md](rendu.md) | Pipeline PixiJS, shader terrain, style carte de livre, symboles, libellés |
-| [editeur.md](editeur.md) | Pinceaux, lieux, routes, undo/redo, conversion écran → local |
-| [fichier-pangee.md](fichier-pangee.md) | Format `.pangee`, migrations, autosave IndexedDB |
-| [partage.md](partage.md) | Export PNG, brouillard de guerre |
-| [decisions.md](decisions.md) | Journal des décisions structurantes et de ce qui a été écarté |
+| Document                               | Sujet                                                                     |
+| -------------------------------------- | ------------------------------------------------------------------------- |
+| [hydrologie.md](hydrologie.md)         | Océans, remplissage des dépressions, rivières, lacs, cascades             |
+| [generation.md](generation.md)         | Génération procédurale : seed, bruit, continents, villes, noms            |
+| [rendu.md](rendu.md)                   | Pipeline PixiJS, shader terrain, style carte de livre, symboles, libellés |
+| [editeur.md](editeur.md)               | Pinceaux, lieux, routes, undo/redo, conversion écran → local              |
+| [fichier-pangee.md](fichier-pangee.md) | Format `.pangee`, migrations, autosave IndexedDB                          |
+| [partage.md](partage.md)               | Export PNG, brouillard de guerre                                          |
+| [decisions.md](decisions.md)           | Journal des décisions structurantes et de ce qui a été écarté             |
 
 ## Glossaire
 
