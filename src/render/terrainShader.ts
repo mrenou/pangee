@@ -31,7 +31,9 @@ precision highp sampler2D;
 in vec2 vScreenUv;
 out vec4 fragColor;
 
-uniform sampler2D uHeight;   // référentiel local, wrap est-ouest
+uniform sampler2D uHeight;      // référentiel local, wrap est-ouest
+uniform sampler2D uWaterLevel;  // référentiel monde, déjà assemblé
+uniform sampler2D uFlowAcc;     // référentiel monde, déjà assemblé
 
 // Caméra
 uniform vec2  uCenter;       // (lonWorld, lat) au centre de l'écran
@@ -47,6 +49,8 @@ uniform float uSeaLevelM;
 uniform float uMaxAltitudeM;
 uniform float uMaxDepthM;
 uniform float uShowFaults;
+uniform float uHasWater;        // 0 tant que l'hydrologie n'a pas répondu
+uniform float uRiverThreshold;
 
 const float PI = 3.14159265359;
 
@@ -122,7 +126,17 @@ void main() {
 
   vec2 uv = localUv(lonLat);
   float h = sampleHeight(uv);
-  float depthOrAlt = h - uSeaLevelM;
+
+  // Les couches d'eau sont déjà assemblées : on les lit sans décalage.
+  vec2 worldUv = vec2(fract((lonLat.x + 180.0) / 360.0), (90.0 - lonLat.y) / 180.0);
+  float waterLevel = texture(uWaterLevel, worldUv).r;
+  float flowAcc = texture(uFlowAcc, worldUv).r;
+
+  // Tant que l'hydrologie n'a pas répondu, le niveau de la mer sert de
+  // surface d'eau : le terrain ne doit jamais attendre l'eau pour s'afficher.
+  bool submerged = uHasWater > 0.5 ? waterLevel > h : h < uSeaLevelM;
+  float surfaceM = uHasWater > 0.5 ? waterLevel : uSeaLevelM;
+  float depthOrAlt = submerged ? h - surfaceM : h - uSeaLevelM;
 
   // Ombrage de relief : gradient en différences finies, sur un pas d'un texel
   // de raster converti en degrés, pour rester stable à tous les zooms.
@@ -133,7 +147,7 @@ void main() {
            - sampleHeight(localUv(lonLat - vec2(0.0, stepDeg)));
 
   vec3 color;
-  if (depthOrAlt >= 0.0) {
+  if (!submerged) {
     float t = clamp(depthOrAlt / uMaxAltitudeM, 0.0, 1.0);
     color = landColor(t);
 
@@ -141,21 +155,32 @@ void main() {
     float shade = clamp(0.5 + (hx * 0.5 + hy * 0.5) / 900.0, 0.15, 1.0);
     color *= mix(0.78, 1.14, shade);
   } else {
-    float t = clamp(-depthOrAlt / uMaxDepthM, 0.0, 1.0);
+    // Un lac de montagne est peu profond : on étale la palette sur sa propre
+    // profondeur, pas sur celle des grands fonds.
+    float depth = surfaceM - h;
+    float t = clamp(depth / uMaxDepthM, 0.0, 1.0);
     color = seaColor(t);
   }
 
   // Trait d'encre sur le trait de côte : on détecte le passage par zéro dans
   // le voisinage immédiat, à une largeur constante à l'écran.
   float coastWidth = max(stepDeg, uViewSpanDeg.y / 400.0);
-  float hE = sampleHeight(localUv(lonLat + vec2(coastWidth, 0.0))) - uSeaLevelM;
-  float hW = sampleHeight(localUv(lonLat - vec2(coastWidth, 0.0))) - uSeaLevelM;
-  float hN = sampleHeight(localUv(lonLat + vec2(0.0, coastWidth))) - uSeaLevelM;
-  float hS = sampleHeight(localUv(lonLat - vec2(0.0, coastWidth))) - uSeaLevelM;
+  float hE = sampleHeight(localUv(lonLat + vec2(coastWidth, 0.0))) - surfaceM;
+  float hW = sampleHeight(localUv(lonLat - vec2(coastWidth, 0.0))) - surfaceM;
+  float hN = sampleHeight(localUv(lonLat + vec2(0.0, coastWidth))) - surfaceM;
+  float hS = sampleHeight(localUv(lonLat - vec2(0.0, coastWidth))) - surfaceM;
   float minN = min(min(hE, hW), min(hN, hS));
   float maxN = max(max(hE, hW), max(hN, hS));
   float coast = step(minN, 0.0) * step(0.0, maxN);
   color = mix(color, vec3(0.169, 0.129, 0.094), coast * 0.75);
+
+  // Rivières : l'encre s'installe quand la surface drainée dépasse le seuil,
+  // et fonce avec le débit. Le trait à largeur variable viendra avec le style.
+  if (uHasWater > 0.5 && !submerged && flowAcc > uRiverThreshold) {
+    float strength = clamp(log2(flowAcc / uRiverThreshold) / 6.0, 0.0, 1.0);
+    vec3 riverInk = vec3(0.325, 0.427, 0.478);
+    color = mix(color, riverInk, 0.35 + 0.55 * strength);
+  }
 
   // Trait de faille : la latitude de coupure, où le cisaillement a lieu.
   float faultWidth = uViewSpanDeg.y / 300.0;

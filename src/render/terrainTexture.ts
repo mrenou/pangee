@@ -46,3 +46,14 @@ export function createHeightTexture(size: RasterSize, height: Float32Array): Hei
     },
   };
 }
+
+/**
+ * Texture d'une couche dérivée, en référentiel monde.
+ *
+ * Le wrap est le même qu'en local — la planète reste un cylindre — mais aucun
+ * décalage ne lui est appliqué : la couche est déjà assemblée pour la date
+ * courante par le worker. Voir docs/hydrologie.md.
+ */
+export function createWorldTexture(size: RasterSize, data: Float32Array): HeightTexture {
+  return createHeightTexture(size, data);
+}
