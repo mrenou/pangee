@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Carte vivante de Pang\u00e9e : trois anneaux qui tournent depuis le Cataclysme",
+  "description": "Carte vivante de Pangée : trois anneaux qui tournent depuis le Cataclysme",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -13,7 +13,8 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "typecheck": "tsc -b --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "bench": "vite-node scripts/bench-hydro.ts"
   },
   "dependencies": {
     "comlink": "^4.4.2",
@@ -43,6 +44,7 @@
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.18.2",
     "vite": "^6.0.7",
+    "vite-node": "^6.0.0",
     "vitest": "^5.0.0"
   }
 }

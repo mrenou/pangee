@@ -121,6 +121,21 @@ chacun on produit :
 `waterLevel` fusionne mer et lacs en une seule couche pour le rendu : altitude de la surface
 d'eau, ou sentinelle si la cellule est sèche.
 
+### Ce qui mérite d'être appelé un lac
+
+Un relief de bruit fractal compte des milliers de minima locaux de un ou deux mètres. Le
+remplissage les traite correctement — ils comptent pour l'écoulement, et `filled` les conserve —
+mais les afficher en eau criblerait la carte de taches : sur un premier essai en 2048 × 1024, on
+relevait 6 616 « lacs ».
+
+Une cuvette n'est donc retenue comme lac que si sa **profondeur** au point le plus bas dépasse
+`MIN_LAKE_DEPTH_M` (15 m par défaut). Le critère est la profondeur et non la surface : à cette
+résolution une seule cellule couvre déjà une vingtaine de kilomètres, la surface ne discrimine
+rien. Le même monde tombe alors à environ 500 lacs.
+
+Ce filtre est **cosmétique et ne touche pas à l'hydrologie** : `filled`, `flowDir` et `flowAcc`
+sont calculés sur toutes les cuvettes, retenues ou non.
+
 ## 7. Effets de frontière
 
 Deux phénomènes naissent du cisaillement aux coupures, et ils font une bonne part de l'identité
@@ -137,10 +152,15 @@ décrit dans [le rendu](rendu.md).
 
 ## Budget de performance
 
-| Grille      | Cellules | Cible                             |
-| ----------- | -------- | --------------------------------- |
-| 2048 × 1024 | 2,1 M    | 0,3 – 0,6 s en JS, dans un worker |
-| 4096 × 2048 | 8,4 M    | ~2 s, option assumée              |
+| Grille      | Cellules | Mesure               |
+| ----------- | -------- | -------------------- |
+| 2048 × 1024 | 2,1 M    | ~0,87 s              |
+| 4096 × 2048 | 8,4 M    | ~4 s, option assumée |
+
+Mesures relevées par `npm run bench` (`scripts/bench-hydro.ts`), en JavaScript, dans un worker,
+sur un portable de développement. La répartition compte autant que le total : le priority-flood
+pèse environ 70 % du temps, les directions D8 environ 20 %, l'accumulation et les lacs le reste.
+C'est donc le remplissage qu'il faudra attaquer si le budget devient trop serré.
 
 Règles pour tenir ce budget, en complément des [conventions](conventions.md) :
 
