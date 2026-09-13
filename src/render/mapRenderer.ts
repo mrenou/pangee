@@ -11,7 +11,11 @@ import { normalizeViewport, visibleSpanDeg, type Viewport } from '@/model/viewpo
 import type { RingConfig } from '@/model/ring';
 import type { RasterSize } from '@/model/world';
 import { TERRAIN_FRAGMENT, TERRAIN_VERTEX } from '@/render/terrainShader';
-import { createHeightTexture, type HeightTexture } from '@/render/terrainTexture';
+import {
+  createHeightTexture,
+  createWorldTexture,
+  type HeightTexture,
+} from '@/render/terrainTexture';
 
 export interface TerrainView {
   readonly ringConfig: RingConfig;
@@ -28,6 +32,13 @@ export interface MapRenderer {
   setHeight: (size: RasterSize, height: Float32Array) => void;
   setViewport: (viewport: Viewport) => void;
   setView: (view: TerrainView) => void;
+  /** Couches d'eau calculées par le worker, en référentiel monde. */
+  setWater: (
+    size: RasterSize,
+    waterLevel: Float32Array,
+    flowAcc: Float32Array,
+    riverThreshold: number,
+  ) => void;
   /** Taille courante du canvas, en pixels CSS. */
   screenSize: () => { widthPx: number; heightPx: number };
   destroy: () => void;
@@ -56,20 +67,26 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     uMaxAltitudeM: { value: 6000, type: 'f32' },
     uMaxDepthM: { value: 8000, type: 'f32' },
     uShowFaults: { value: 1, type: 'f32' },
+    uHasWater: { value: 0, type: 'f32' },
+    uRiverThreshold: { value: 1e9, type: 'f32' },
   });
 
   // Un seul texel tant qu'aucun relief n'est arrivé : le shader a besoin d'une
   // texture valide dès la première image.
-  let heightTexture: HeightTexture = createHeightTexture(
-    { width: 1, height: 1 },
-    new Float32Array([0]),
-  );
+  const onePixel: RasterSize = { width: 1, height: 1 };
+  let heightTexture: HeightTexture = createHeightTexture(onePixel, new Float32Array([0]));
+  let waterTexture: HeightTexture = createWorldTexture(onePixel, new Float32Array([0]));
+  let flowTexture: HeightTexture = createWorldTexture(onePixel, new Float32Array([0]));
 
   const shader = Shader.from({
     gl: { vertex: TERRAIN_VERTEX, fragment: TERRAIN_FRAGMENT },
     resources: {
       uHeight: heightTexture.texture.source,
       uHeightSampler: heightTexture.texture.source.style,
+      uWaterLevel: waterTexture.texture.source,
+      uWaterLevelSampler: waterTexture.texture.source.style,
+      uFlowAcc: flowTexture.texture.source,
+      uFlowAccSampler: flowTexture.texture.source.style,
       uniforms,
     },
   });
@@ -135,15 +152,39 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     previous.destroy();
   };
 
+  const setWater = (
+    size: RasterSize,
+    waterLevel: Float32Array,
+    flowAcc: Float32Array,
+    riverThreshold: number,
+  ): void => {
+    const previousWater = waterTexture;
+    const previousFlow = flowTexture;
+    waterTexture = createWorldTexture(size, waterLevel);
+    flowTexture = createWorldTexture(size, flowAcc);
+    shader.resources.uWaterLevel = waterTexture.texture.source;
+    shader.resources.uWaterLevelSampler = waterTexture.texture.source.style;
+    shader.resources.uFlowAcc = flowTexture.texture.source;
+    shader.resources.uFlowAccSampler = flowTexture.texture.source.style;
+    uniforms.uniforms.uHasWater = 1;
+    uniforms.uniforms.uRiverThreshold = riverThreshold;
+    uniforms.update();
+    previousWater.destroy();
+    previousFlow.destroy();
+  };
+
   return {
     app,
     setHeight,
     setViewport,
     setView,
+    setWater,
     screenSize,
     destroy: () => {
       app.renderer.off('resize', resizeMesh);
       heightTexture.destroy();
+      waterTexture.destroy();
+      flowTexture.destroy();
       app.destroy(true, { children: true });
     },
   };

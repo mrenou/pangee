@@ -1,5 +1,6 @@
 import { kmPerDay, midLat, ringOffsetsDeg } from '@/model/time';
 import { RING_IDS, type RingId } from '@/model/ring';
+import { useHydroStore } from '@/store/hydroStore';
 import { useWorldStore } from '@/store/worldStore';
 import { Field } from '@/ui/Field';
 
@@ -128,6 +129,42 @@ export function RingPanel() {
         />
         Marquer les lignes de faille
       </label>
+
+      <HydroStatus />
     </section>
+  );
+}
+
+/** État du dernier calcul hydrologique. Voir docs/hydrologie.md. */
+function HydroStatus() {
+  const computing = useHydroStore((s) => s.computing);
+  const version = useHydroStore((s) => s.waterVersion);
+  const lakeCount = useHydroStore((s) => s.lakeCount);
+  const elapsedMs = useHydroStore((s) => s.lastElapsedMs);
+  const error = useHydroStore((s) => s.error);
+
+  if (error !== undefined) {
+    return (
+      <p role="alert" className="mt-3 text-xs text-red-800">
+        L’hydrologie a échoué : {error}
+      </p>
+    );
+  }
+
+  return (
+    // Les attributs de données portent l'état brut : les tests de bout en bout
+    // s'en servent pour attendre un nouveau calcul et lire ses chiffres, sans
+    // dépendre d'un texte localisé.
+    <p
+      className="mt-3 text-xs text-ink-soft"
+      data-hydro-version={version}
+      data-hydro-lakes={lakeCount}
+      data-hydro-elapsed-ms={Math.round(elapsedMs)}
+      data-hydro-computing={computing ? 'true' : 'false'}
+    >
+      {computing
+        ? 'Les eaux cherchent leur chemin…'
+        : `${lakeCount.toLocaleString('fr-FR')} lacs · calcul en ${Math.round(elapsedMs)} ms`}
+    </p>
   );
 }

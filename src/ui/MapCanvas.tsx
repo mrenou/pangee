@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { MAX_ALTITUDE, MAX_DEPTH, useWorldStore } from '@/store/worldStore';
 import { useViewportStore } from '@/store/viewportStore';
+import { RAIN_PER_CELL, useHydroStore } from '@/store/hydroStore';
 import { attachCameraControls } from '@/render/cameraControls';
 import { createMapRenderer, type MapRenderer } from '@/render/mapRenderer';
 
@@ -83,6 +84,31 @@ export function MapCanvas() {
       maxDepthM: MAX_DEPTH,
     });
   }, [ringConfig, tDays, seaLevelM, showFaults]);
+
+  // L'eau est recalculée après coup : le terrain a déjà glissé, seul un
+  // uniforme ayant changé. Voir docs/temps.md.
+  useEffect(() => {
+    if (heightVersion === 0) return;
+    useHydroStore.getState().schedule({
+      ringConfig,
+      tDays,
+      seaLevelM,
+      rainPerCell: RAIN_PER_CELL,
+    });
+  }, [heightVersion, ringConfig, tDays, seaLevelM]);
+
+  const waterVersion = useHydroStore((s) => s.waterVersion);
+  useEffect(() => {
+    const { water } = useHydroStore.getState();
+    if (water) {
+      rendererRef.current?.setWater(
+        water.size,
+        water.waterLevel,
+        water.flowAcc,
+        water.riverThreshold,
+      );
+    }
+  }, [waterVersion]);
 
   return <div ref={hostRef} className="relative h-full flex-1 cursor-grab bg-parchment-dark" />;
 }
