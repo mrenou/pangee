@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: theme('colors.parchment.dark');
+    color: theme('colors.ink.DEFAULT');
+    font-family: theme('fontFamily.serif');
+    -webkit-font-smoothing: antialiased;
+  }
+}
