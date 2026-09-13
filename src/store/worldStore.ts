@@ -3,6 +3,7 @@ import { DEFAULT_TERRAIN_PARAMS, MAX_ALTITUDE_M, MAX_DEPTH_M, type TerrainParams
 import { DEFAULT_RING_CONFIG, type RingConfig, type RingId } from '@/model/ring';
 import { DEFAULT_SETTINGS, RASTER_2K, type RasterSize } from '@/model/world';
 import { generateWorldInWorker } from '@/workers/genClient';
+import { useHydroStore } from '@/store/hydroStore';
 
 export type GenerationStatus = 'idle' | 'running' | 'error';
 
@@ -89,6 +90,9 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     set({ status: 'running', error: undefined });
     try {
       const result = await generateWorldInWorker({ size: rasterSize, terrain });
+      // Le worker hydrologique garde sa propre copie du relief : changer de
+      // date ne lui renverra plus que quelques nombres.
+      await useHydroStore.getState().setHeight(result.size, result.height);
       set((s) => ({
         height: result.height,
         rasterSize: result.size,
