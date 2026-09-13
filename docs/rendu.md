@@ -32,6 +32,8 @@ Conséquences, et c'est la raison du choix :
 - **aucun assemblage CPU** n'est nécessaire pour afficher le monde à une nouvelle date — changer la date ne coûte qu'un uniforme, donc le scrub de date est instantané même pendant que l'hydrologie recalcule en arrière-plan ;
 - le **pan est gratuit** : le wrap est-ouest est assuré par `REPEAT` et un `fract` sur la coordonnée x.
 
+Le relief est téléversé en **`r32float`** : des mètres réels, pas une valeur normalisée. WebGL2 n'interpole pas nativement les textures flottantes (il faudrait `OES_texture_float_linear`), la texture est donc échantillonnée en `nearest` et **l'interpolation bilinéaire est faite à la main dans le shader**, sur quatre taps, avec le wrap en x appliqué à chaque tap pour que le filtrage reste correct au méridien ±180.
+
 **Textures en référentiel monde**, produites par le worker d'hydrologie pour la date t : `waterLevel`, `flowAcc`, `flowDir`, `lakeId`, `biome`. Elles sont déjà assemblées, donc échantillonnées **sans décalage**. Elles arrivent avec un temps de retard (debounce, voir [hydrologie](hydrologie.md)) ; le terrain glisse d'abord, l'eau suit.
 
 Le choix de l'anneau se fait **par fragment, depuis sa latitude**, comparée à `cutNorthLat` / `cutSouthLat` passées en uniformes et converties dans l'espace de texture. La frontière tombe donc exactement à la latitude de coupure, au pixel près, quel que soit le zoom — et non sur une limite de cellule du raster.
