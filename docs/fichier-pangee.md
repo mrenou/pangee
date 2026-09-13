@@ -8,12 +8,12 @@ date.
 
 ## Entrées de l'archive
 
-| Entrée | Type | Taille en 2048×1024 | Rôle |
-|---|---|---|---|
-| `world.json` | JSON UTF-8 | 20–200 Kio | Métadonnées, `RingConfig`, date de campagne, rayon, niveau de mer, dimensions des rasters, `Place[]`, `Road[]`, seed |
-| `height.bin` | `Float32Array` (ou `Uint16Array` quantifié) | 8 Mio (4 Mio quantifié) | Altitude et bathymétrie, en mètres |
-| `biome.bin` | `Uint8Array` | 2 Mio | `biomeOverride` ; `0` = biome automatique |
-| `fog.bin` | `Uint8Array` basse résolution | ~128 Kio en 512×256 | Brouillard de guerre — voir [le partage](partage.md) |
+| Entrée       | Type                                        | Taille en 2048×1024     | Rôle                                                                                                                 |
+| ------------ | ------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `world.json` | JSON UTF-8                                  | 20–200 Kio              | Métadonnées, `RingConfig`, date de campagne, rayon, niveau de mer, dimensions des rasters, `Place[]`, `Road[]`, seed |
+| `height.bin` | `Float32Array` (ou `Uint16Array` quantifié) | 8 Mio (4 Mio quantifié) | Altitude et bathymétrie, en mètres                                                                                   |
+| `biome.bin`  | `Uint8Array`                                | 2 Mio                   | `biomeOverride` ; `0` = biome automatique                                                                            |
+| `fog.bin`    | `Uint8Array` basse résolution               | ~128 Kio en 512×256     | Brouillard de guerre — voir [le partage](partage.md)                                                                 |
 
 Les rasters couvrent la planète entière, sans marge, indexés `y * width + x`, ligne par ligne du nord
 (`y = 0`, `lat = +90`) au sud. La compression deflate du zip réduit fortement `biome.bin` et `fog.bin`
@@ -26,39 +26,39 @@ du bruit : c'est l'argument principal en faveur de la quantification.
 
 ```ts
 interface WorldFile {
-  formatVersion: number;                 // entier, voir « Versions et migrations »
+  formatVersion: number; // entier, voir « Versions et migrations »
   app: { name: 'pangee'; version: string };
-  createdAt: string;                     // ISO 8601
+  createdAt: string; // ISO 8601
   updatedAt: string;
   world: {
     id: string;
     name: string;
-    seed: number;                        // seed de génération procédurale
-    radiusKm: number;                    // défaut 6371
+    seed: number; // seed de génération procédurale
+    radiusKm: number; // défaut 6371
     seaLevelM: number;
-    campaignDate: number;                // date courante, en jours depuis le Cataclysme
+    campaignDate: number; // date courante, en jours depuis le Cataclysme
   };
-  rings: RingConfig;                     // cutNorthLat, cutSouthLat, rings[RingId].omegaDegPerDay, t0
+  rings: RingConfig; // cutNorthLat, cutSouthLat, rings[RingId].omegaDegPerDay, t0
   rasters: RasterIndex;
   places: Place[];
   roads: Road[];
 }
 
 interface RasterIndex {
-  width: number;                         // 2048 ou 4096
-  height: number;                        // 1024 ou 2048
+  width: number; // 2048 ou 4096
+  height: number; // 1024 ou 2048
   endianness: 'little';
   layers: {
     height: HeightLayer;
     biome: { file: 'biome.bin'; type: 'uint8' };
-    fog:   { file: 'fog.bin';   type: 'uint8'; width: number; height: number };
+    fog: { file: 'fog.bin'; type: 'uint8'; width: number; height: number };
   };
 }
 
 type HeightLayer =
   | { file: 'height.bin'; type: 'float32' }
   | { file: 'height.bin'; type: 'uint16'; scaleM: number; offsetM: number };
-  // valeur réelle : h = raw * scaleM + offsetM
+// valeur réelle : h = raw * scaleM + offsetM
 ```
 
 ### Quantification du relief

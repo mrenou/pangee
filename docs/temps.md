@@ -47,9 +47,12 @@ affiche donc la vitesse **à la latitude médiane de l'anneau** :
 ```ts
 const midLat = (ring: RingId, cfg: RingConfig): number => {
   switch (ring) {
-    case 'north':   return (cfg.cutNorthLat + 90) / 2;
-    case 'equator': return (cfg.cutNorthLat + cfg.cutSouthLat) / 2;
-    case 'south':   return (cfg.cutSouthLat - 90) / 2;
+    case 'north':
+      return (cfg.cutNorthLat + 90) / 2;
+    case 'equator':
+      return (cfg.cutNorthLat + cfg.cutSouthLat) / 2;
+    case 'south':
+      return (cfg.cutSouthLat - 90) / 2;
   }
 };
 
@@ -59,13 +62,13 @@ const kmPerDay = (omegaDegPerDay: number, lat: number, radiusKm: number): number
 
 Avec le rayon par défaut de 6371 km :
 
-| ω (°/jour) | km/jour à l'équateur | Ordre de grandeur |
-|---|---|---|
-| `0.001` | ≈ 0,11 | imperceptible à l'échelle d'une vie |
-| `0.01` | ≈ 1,1 | un village décalé d'un kilomètre par an |
-| `0.1` | ≈ 11 | frontière mouvante, visible sur une campagne |
-| `1` | ≈ 111 | un tour complet en un an |
-| `10` | ≈ 1112 | un tour en 36 jours, monde chaotique |
+| ω (°/jour) | km/jour à l'équateur | Ordre de grandeur                            |
+| ---------- | -------------------- | -------------------------------------------- |
+| `0.001`    | ≈ 0,11               | imperceptible à l'échelle d'une vie          |
+| `0.01`     | ≈ 1,1                | un village décalé d'un kilomètre par an      |
+| `0.1`      | ≈ 11                 | frontière mouvante, visible sur une campagne |
+| `1`        | ≈ 111                | un tour complet en un an                     |
+| `10`       | ≈ 1112               | un tour en 36 jours, monde chaotique         |
 
 Le **signe** donne le sens : positif vers l'est, négatif vers l'ouest. L'interface montre le signe
 sous forme de flèche, la valeur absolue sous forme de vitesse, et rappelle toujours l'unité,
@@ -76,12 +79,12 @@ c'est elle qui détermine le cisaillement à la coupure. L'interface l'affiche e
 
 ## Ce que la date change, et ce qu'elle ne change pas
 
-| Change avec `tDays` | Ne change pas |
-|---|---|
-| Le décalage `Δλ_r(t)` de chaque anneau | Les rasters en référentiel local |
-| `heightWorld` et donc toute l'hydrologie | Les `Place` et `Road` (stockés en local) |
-| Les lacs, les rivières, les inondations | Le brouillard `fog` (local, il suit le terrain) |
-| Les biomes dérivés de l'eau | Les latitudes de coupure et les vitesses |
+| Change avec `tDays`                      | Ne change pas                                   |
+| ---------------------------------------- | ----------------------------------------------- |
+| Le décalage `Δλ_r(t)` de chaque anneau   | Les rasters en référentiel local                |
+| `heightWorld` et donc toute l'hydrologie | Les `Place` et `Road` (stockés en local)        |
+| Les lacs, les rivières, les inondations  | Le brouillard `fog` (local, il suit le terrain) |
+| Les biomes dérivés de l'eau              | Les latitudes de coupure et les vitesses        |
 
 Une rivière qui coulait vers une vallée peut se retrouver barrée quand l'anneau voisin a glissé :
 sa cuvette se remplit jusqu'au nouveau point de débordement, et un lac apparaît. Ce n'est pas un
@@ -90,14 +93,14 @@ cas particulier du code, c'est la conséquence mécanique du recalcul — voir
 
 ## Réglages exposés au MJ
 
-| Réglage | Effet | Coût |
-|---|---|---|
-| Date de campagne | décale les anneaux | assemblage + hydrologie |
-| ω par anneau (valeur + sens) | change la loi de décalage | idem |
-| Latitudes de coupure | redécoupe les bandes | idem, plus réaffectation des `ringId` |
-| `t0` | recale l'origine | idem |
-| Rayon planétaire | conversions km ↔ degrés, échelle des exports | affichage seulement |
-| Niveau de mer | trait de côte, océans | hydrologie |
+| Réglage                      | Effet                                        | Coût                                  |
+| ---------------------------- | -------------------------------------------- | ------------------------------------- |
+| Date de campagne             | décale les anneaux                           | assemblage + hydrologie               |
+| ω par anneau (valeur + sens) | change la loi de décalage                    | idem                                  |
+| Latitudes de coupure         | redécoupe les bandes                         | idem, plus réaffectation des `ringId` |
+| `t0`                         | recale l'origine                             | idem                                  |
+| Rayon planétaire             | conversions km ↔ degrés, échelle des exports | affichage seulement                   |
+| Niveau de mer                | trait de côte, océans                        | hydrologie                            |
 
 Déplacer une latitude de coupure **réaffecte** les lieux et les routes dont l'anneau change. Pour
 les routes, cela peut imposer une nouvelle scission, ou au contraire laisser deux moitiés

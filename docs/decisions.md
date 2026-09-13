@@ -18,14 +18,14 @@ v1 et les orientations techniques.
 **Décidé.** Le monde de départ est produit par un générateur déterministe à partir d'une seed, et
 le MJ peut ensuite tout modifier. Voir [la génération](generation.md).
 
-*Écarté :* partir d'une carte blanche (trop long à remplir pour 50–150 villes), partir d'une carte
+_Écarté :_ partir d'une carte blanche (trop long à remplir pour 50–150 villes), partir d'une carte
 importée (pas de source libre adaptée à un monde imaginaire à trois anneaux).
 
 ### D2 — Vue 2D équirectangulaire, wrap est-ouest, zoom continu
 
 **Décidé.** Carte plate, cylindrique, avec répétition infinie en longitude et zoom continu.
 
-*Écarté :* un globe 3D — plus juste géométriquement, mais contraire au style « carte de roman »,
+_Écarté :_ un globe 3D — plus juste géométriquement, mais contraire au style « carte de roman »,
 plus coûteux à styliser, et mauvais pour l'export PNG d'une zone. Reporté en phase 7 comme vue
 secondaire éventuelle.
 
@@ -35,7 +35,7 @@ secondaire éventuelle.
 vitesse signée par anneau allant de quasi-immobile à très rapide. Voir
 [le modèle du monde](modele-monde.md).
 
-*Écarté :* un nombre d'anneaux variable (complexité de l'interface et du modèle sans gain narratif
+_Écarté :_ un nombre d'anneaux variable (complexité de l'interface et du modèle sans gain narratif
 à ce stade) ; une zone de transition adoucie aux frontières (le cisaillement net est justement
 l'élément dramatique du monde).
 
@@ -44,11 +44,11 @@ l'élément dramatique du monde).
 **Décidé.** Le monde est stocké tel qu'avant le Cataclysme ; la position à la date `t` est
 calculée par `lonWorld = lonLocal + Δλ_r(t)`. C'est la décision la plus structurante du projet.
 
-*Pourquoi :* changer une vitesse d'anneau ou la date ne détruit aucune donnée, `t = t0` redonne le
+_Pourquoi :_ changer une vitesse d'anneau ou la date ne détruit aucune donnée, `t = t0` redonne le
 monde d'origine, et deux ouvertures du même fichier à la même date donnent exactement la même
 carte.
 
-*Écarté :* stocker les positions courantes et les faire évoluer pas à pas — dérive numérique
+_Écarté :_ stocker les positions courantes et les faire évoluer pas à pas — dérive numérique
 cumulative, impossibilité de revenir en arrière, édition non reproductible.
 
 ### D5 — Date de campagne en jours depuis le Cataclysme, état déterministe
@@ -56,14 +56,14 @@ cumulative, impossibilité de revenir en arrière, édition non reproductible.
 **Décidé.** `tDays` est un nombre de jours, l'état du monde est une fonction pure de la date. Un
 time-lapse est prévu. Voir [le temps](temps.md).
 
-*Écarté :* un calendrier complet avec mois et saisons — reporté, non bloquant.
+_Écarté :_ un calendrier complet avec mois et saisons — reporté, non bloquant.
 
 ### D6 — Relief en mètres, niveau de mer réglable
 
 **Décidé.** `height` en `Float32Array` de mètres, négatif sous la mer, avec un `seaLevelM`
 indépendant.
 
-*Écarté :* une altitude normalisée `[0, 1]` — déplacer la mer y obligerait à retoucher le relief,
+_Écarté :_ une altitude normalisée `[0, 1]` — déplacer la mer y obligerait à retoucher le relief,
 et les échelles affichées au MJ perdraient tout sens physique.
 
 ### D7 — Hydrologie statique en v1, recalculée à chaque date
@@ -72,10 +72,10 @@ et les échelles affichées au MJ perdraient tout sens physique.
 signature `computeHydro(input, prev?, dtDays?)` est fixée dès la v1 pour accueillir la version
 volumétrique sans casser les appelants. Voir [l'hydrologie](hydrologie.md).
 
-*Pourquoi :* une rivière barrée par un anneau qui a glissé doit produire un lac **sans code
+_Pourquoi :_ une rivière barrée par un anneau qui a glissé doit produire un lac **sans code
 dédié**, par simple remplissage jusqu'au col.
 
-*Écarté :* la simulation volumétrique dès la v1 (coût de calcul et de conception disproportionné
+_Écarté :_ la simulation volumétrique dès la v1 (coût de calcul et de conception disproportionné
 avant d'avoir une carte à regarder).
 
 ### D8 — Édition par pinceaux, lieux et routes tracées à la main
@@ -83,7 +83,7 @@ avant d'avoir une carte à regarder).
 **Décidé.** Pinceau relief, pinceau biome, lieux nommés, routes point à point avec magnétisme et
 option A*. Tout passe par des commandes annulables. Voir [l'éditeur](editeur.md).
 
-*Écarté :* une édition purement paramétrique (régler des curseurs de génération) — insuffisant
+_Écarté :_ une édition purement paramétrique (régler des curseurs de génération) — insuffisant
 pour un MJ qui a une intention narrative précise sur une vallée donnée.
 
 ### D9 — Partage par export PNG avec brouillard de guerre
@@ -91,7 +91,7 @@ pour un MJ qui a une intention narrative précise sur une vallée donnée.
 **Décidé.** Le MJ cadre une zone, exporte un PNG à la date courante, et les zones non révélées
 apparaissent en parchemin « Terra incognita ». Voir [le partage](partage.md).
 
-*Écarté :* une vue joueur en ligne avec comptes et permissions — impose un backend, contraire à
+_Écarté :_ une vue joueur en ligne avec comptes et permissions — impose un backend, contraire à
 D12.
 
 ### D10 — Animations après le cœur fonctionnel
@@ -99,7 +99,7 @@ D12.
 **Décidé.** Eau, volcans, créatures et time-lapse arrivent en phase 6, une fois le monde, l'eau,
 le style et l'édition en place.
 
-*Pourquoi :* c'est le poste le plus susceptible de faire gonfler le périmètre sans rapprocher du
+_Pourquoi :_ c'est le poste le plus susceptible de faire gonfler le périmètre sans rapprocher du
 besoin réel, qui est de jouer.
 
 ### D11 — Échelle : 50–150 villes, relief 2048×1024
@@ -108,7 +108,7 @@ besoin réel, qui est de jouer.
 choix fixe le budget de l'hydrologie à 2,1 M de cellules, soit 0,3–0,6 s en JavaScript dans un
 worker.
 
-*Écarté :* une résolution adaptative par région — complexité de gestion sans gain visible à cette
+_Écarté :_ une résolution adaptative par région — complexité de gestion sans gain visible à cette
 échelle.
 
 ### D12 — Site statique, aucun backend
@@ -116,10 +116,10 @@ worker.
 **Décidé.** Déploiement GitHub Pages ou Cloudflare Pages, sauvegarde en IndexedDB et export de
 fichier `.pangee`. Voir [le format de fichier](fichier-pangee.md).
 
-*Pourquoi :* pas de coût d'hébergement, pas de compte à gérer, pas de données personnelles, et le
+_Pourquoi :_ pas de coût d'hébergement, pas de compte à gérer, pas de données personnelles, et le
 MJ garde ses mondes chez lui.
 
-*Écarté :* un backend de synchronisation multi-joueurs — reporté indéfiniment, hors besoin
+_Écarté :_ un backend de synchronisation multi-joueurs — reporté indéfiniment, hors besoin
 exprimé.
 
 ---
@@ -128,16 +128,16 @@ exprimé.
 
 Prises dans la foulée du cadrage, moins structurantes mais qui engagent le code :
 
-| Décision | Motif | Alternative écartée |
-|---|---|---|
-| PixiJS v8 pour le rendu | shader custom sur un quad plein écran, écosystème 2D mûr | WebGL nu (trop de plomberie), Canvas 2D (pas de shader, trop lent) |
-| Décalage des anneaux en **uniforme de shader**, pas en assemblage CPU pour l'affichage | décalage flottant exact, terrain instantané au scrub de date | assemblage CPU pour l'affichage — latence et artefacts d'arrondi |
-| Web Workers + Comlink | l'hydrologie ne doit jamais bloquer le curseur de date | calcul sur le thread principal |
-| Route scindée **à la création** aux coupures | chaque consommateur ignore les frontières, l'édition reste sans ambiguïté | découpe à l'affichage seulement |
-| Seuils hydrologiques en **fraction de la surface**, pas en cellules | changer de résolution ne doit pas effacer les rivières | seuils absolus |
-| Format `.pangee` = zip `fflate` + binaires séparés | JSON pour le lisible, binaire pour les 2 M de cellules | tout en JSON (taille et parsing prohibitifs) |
-| React 19 + Zustand + Tailwind | état global simple, panneaux nombreux, pas de routage | Redux (cérémonie inutile ici) |
-| Rust → WASM en réserve pour l'hydrologie | parade prévue si 4096×2048 ou l'érosion dépassent le budget | optimiser JS indéfiniment |
+| Décision                                                                               | Motif                                                                     | Alternative écartée                                                |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| PixiJS v8 pour le rendu                                                                | shader custom sur un quad plein écran, écosystème 2D mûr                  | WebGL nu (trop de plomberie), Canvas 2D (pas de shader, trop lent) |
+| Décalage des anneaux en **uniforme de shader**, pas en assemblage CPU pour l'affichage | décalage flottant exact, terrain instantané au scrub de date              | assemblage CPU pour l'affichage — latence et artefacts d'arrondi   |
+| Web Workers + Comlink                                                                  | l'hydrologie ne doit jamais bloquer le curseur de date                    | calcul sur le thread principal                                     |
+| Route scindée **à la création** aux coupures                                           | chaque consommateur ignore les frontières, l'édition reste sans ambiguïté | découpe à l'affichage seulement                                    |
+| Seuils hydrologiques en **fraction de la surface**, pas en cellules                    | changer de résolution ne doit pas effacer les rivières                    | seuils absolus                                                     |
+| Format `.pangee` = zip `fflate` + binaires séparés                                     | JSON pour le lisible, binaire pour les 2 M de cellules                    | tout en JSON (taille et parsing prohibitifs)                       |
+| React 19 + Zustand + Tailwind                                                          | état global simple, panneaux nombreux, pas de routage                     | Redux (cérémonie inutile ici)                                      |
+| Rust → WASM en réserve pour l'hydrologie                                               | parade prévue si 4096×2048 ou l'érosion dépassent le budget               | optimiser JS indéfiniment                                          |
 
 ---
 
