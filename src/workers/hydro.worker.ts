@@ -23,6 +23,8 @@ export interface HydroRequest {
 
 export interface HydroReply {
   readonly size: RasterSize;
+  /** Relief assemblé pour cette date : le semis des symboles s'en sert. */
+  readonly heightWorld: Float32Array;
   readonly waterLevel: Float32Array;
   readonly flowAcc: Float32Array;
   /** Biomes dérivés, en référentiel monde. */
@@ -85,12 +87,14 @@ const api = {
 
     // Les tampons de calcul sont réutilisés d'un appel à l'autre : on transfère
     // des copies, sinon le worker les perdrait au premier envoi.
+    const assembled = new Float32Array(heightWorld);
     const waterLevel = new Float32Array(state.waterLevel);
     const flowAcc = new Float32Array(state.flowAcc);
     const biome = new Uint8Array(climate.biome);
 
     const reply: HydroReply = {
       size,
+      heightWorld: assembled,
       waterLevel,
       flowAcc,
       biome,
@@ -101,6 +105,7 @@ const api = {
       elapsedMs: performance.now() - started,
     };
     return Comlink.transfer(reply, [
+      assembled.buffer,
       waterLevel.buffer,
       flowAcc.buffer,
       biome.buffer,

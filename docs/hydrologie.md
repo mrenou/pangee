@@ -123,18 +123,24 @@ d'eau, ou sentinelle si la cellule est sèche.
 
 ### Ce qui mérite d'être appelé un lac
 
-Un relief de bruit fractal compte des milliers de minima locaux de un ou deux mètres. Le
-remplissage les traite correctement — ils comptent pour l'écoulement, et `filled` les conserve —
-mais les afficher en eau criblerait la carte de taches : sur un premier essai en 2048 × 1024, on
-relevait 6 616 « lacs ».
+Un relief de bruit fractal compte des milliers de minima locaux, et le bruit de crêtes qui donne
+ses chaînes de montagnes au monde en ajoute d'autant. Le remplissage les traite correctement — ils
+comptent pour l'écoulement, et `filled` les conserve — mais les afficher en eau criblerait la
+carte de taches : un premier essai en 2048 × 1024 relevait 6 616 « lacs », et plus de 3 000 une
+fois les crêtes ajoutées.
 
-Une cuvette n'est donc retenue comme lac que si sa **profondeur** au point le plus bas dépasse
-`MIN_LAKE_DEPTH_M` (15 m par défaut). Le critère est la profondeur et non la surface : à cette
-résolution une seule cellule couvre déjà une vingtaine de kilomètres, la surface ne discrimine
-rien. Le même monde tombe alors à environ 500 lacs.
+Une cuvette n'est donc retenue comme lac que si elle satisfait **deux** critères :
+
+| Critère            | Valeur | Raison                                                                 |
+| ------------------ | ------ | ---------------------------------------------------------------------- |
+| `MIN_LAKE_DEPTH_M` | 25 m   | en deçà, c'est un creux du bruit, pas une étendue d'eau                |
+| `MIN_LAKE_CELLS`   | 3      | une cellule couvre déjà une vingtaine de kilomètres à cette résolution |
 
 Ce filtre est **cosmétique et ne touche pas à l'hydrologie** : `filled`, `flowDir` et `flowAcc`
 sont calculés sur toutes les cuvettes, retenues ou non.
+
+La vraie réponse au fond du problème est l'érosion : un terrain érodé n'a presque pas de
+dépressions fermées. Elle est reportée en phase 7.
 
 ## 7. Effets de frontière
 
@@ -154,11 +160,12 @@ décrit dans [le rendu](rendu.md).
 
 | Grille      | Cellules | Mesure               |
 | ----------- | -------- | -------------------- |
-| 2048 × 1024 | 2,1 M    | ~0,87 s              |
+| 2048 × 1024 | 2,1 M    | ~0,9 s               |
 | 4096 × 2048 | 8,4 M    | ~4 s, option assumée |
 
-Mesures relevées par `npm run bench` (`scripts/bench-hydro.ts`), en JavaScript, dans un worker,
-sur un portable de développement. La répartition compte autant que le total : le priority-flood
+Mesures relevées par `npm run bench` (`scripts/bench-hydro.ts`) sous Node, sur un portable de
+développement. Dans le navigateur, le même calcul tombe autour de 350 ms : V8 optimise mieux ces
+boucles que le contexte du banc d'essai, et c'est le chiffre que voit le MJ. La répartition compte autant que le total : le priority-flood
 pèse environ 70 % du temps, les directions D8 environ 20 %, l'accumulation et les lacs le reste.
 C'est donc le remplissage qu'il faudra attaquer si le budget devient trop serré.
 

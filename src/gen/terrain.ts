@@ -7,7 +7,7 @@
 
 import { createNoise3D } from 'simplex-noise';
 import { latOfRow, lonOfColumn } from '@/model/coords';
-import { fbmCylinder, smoothstep, type FbmParams, type Noise3D } from '@/gen/noise';
+import { fbmCylinder, ridgedCylinder, smoothstep, type FbmParams, type Noise3D } from '@/gen/noise';
 import { rngFor } from '@/gen/rng';
 import type { RasterSize } from '@/model/world';
 
@@ -38,6 +38,21 @@ const OCEAN_EXP = 1.4;
 
 /** Poids du détail haute fréquence dans la somme. */
 const DETAIL_WEIGHT = 0.3;
+
+/**
+ * Gain appliqué à l'élévation avant la courbe puissance.
+ *
+ * Un fBm normalisé reste très en deçà de ses bornes : sans gain, l'exposant
+ * terrestre écrase tout et le monde n'a plus une seule cime au-dessus de
+ * 1600 m. Mesuré sur la distribution des altitudes, pas supposé.
+ */
+const LAND_GAIN = 2.4;
+
+/** Poids des crêtes, qui transforment les hauteurs en chaînes. */
+const RIDGE_WEIGHT = 0.42;
+
+/** En deçà de cette élévation, aucune crête : les plaines restent plates. */
+const RIDGE_ONSET = 0.12;
 
 /** Amplitude du domain warping, qui casse la rondeur des taches. */
 const WARP_STRENGTH = 18;
@@ -81,6 +96,7 @@ export function generateHeight(
   const baseNoise: Noise3D = createNoise3D(rng);
   const warpNoise: Noise3D = createNoise3D(rng);
   const detailNoise: Noise3D = createNoise3D(rng);
+  const ridgeNoise: Noise3D = createNoise3D(rng);
 
   const continent = continentParams(params.continentCount);
   const detail = detailParams(params.roughness);
@@ -112,7 +128,16 @@ export function generateHeight(
       // Le détail ne s'applique qu'aux terres et au plateau continental :
       // les grands fonds restent lisses.
       const detailMask = smoothstep(-0.25, 0.1, continental);
-      const e = Math.max(-1, Math.min(1, continental * 0.7 + d * DETAIL_WEIGHT * detailMask));
+      let e = continental * 0.7 + d * DETAIL_WEIGHT * detailMask;
+
+      // Les crêtes ne s'installent que sur les terres déjà hautes : elles
+      // soulignent les reliefs au lieu de hérisser les plaines.
+      if (e > RIDGE_ONSET) {
+        const ridge = ridgedCylinder(ridgeNoise, lon, lat, detail) * polar;
+        e += (ridge - 0.5) * RIDGE_WEIGHT * smoothstep(RIDGE_ONSET, 0.45, e);
+      }
+
+      e = Math.max(-1, Math.min(1, e * (e > 0 ? LAND_GAIN : 1)));
 
       // Les pôles sont tirés vers l'océan : on obtient des calottes plutôt que
       // des artefacts convergents.

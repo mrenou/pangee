@@ -104,6 +104,13 @@ export function MapCanvas() {
   useEffect(() => {
     const { water } = useHydroStore.getState();
     if (water) {
+      rendererRef.current?.setTerrainSample({
+        size: water.size,
+        heightWorld: water.heightWorld,
+        biome: water.biome,
+        waterLevel: water.waterLevel,
+        seaLevelM: useWorldStore.getState().seaLevelM,
+      });
       rendererRef.current?.setWater(
         water.size,
         water.waterLevel,

@@ -27,7 +27,14 @@ const FLOODED_MARGIN_M = EPSILON_M * 2;
  * critère est la profondeur et non la surface : une cellule fait déjà une
  * vingtaine de kilomètres, la surface ne discrimine rien.
  */
-export const MIN_LAKE_DEPTH_M = 15;
+export const MIN_LAKE_DEPTH_M = 25;
+
+/**
+ * Nombre minimal de cellules. Une cellule couvre déjà une vingtaine de
+ * kilomètres : un « lac » d'une seule cellule est un artefact du bruit, pas une
+ * étendue d'eau. Le relief à crêtes en produit des milliers.
+ */
+export const MIN_LAKE_CELLS = 3;
 
 /** Marqueur interne : cellule déjà parcourue, dans un lac non retenu. */
 const REJECTED = -1;
@@ -122,7 +129,7 @@ export function findLakes(
 
     const depthM = level - deepest;
 
-    if (depthM < MIN_LAKE_DEPTH_M) {
+    if (depthM < MIN_LAKE_DEPTH_M || tail < MIN_LAKE_CELLS) {
       // Simple creux du bruit : on le laisse rempli pour l'écoulement, mais on
       // ne le montre pas comme un plan d'eau. Les cellules gardent le marqueur
       // de rejet — les remettre à zéro les ferait revisiter indéfiniment.
