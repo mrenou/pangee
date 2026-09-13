@@ -25,6 +25,12 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       '@typescript-eslint/no-explicit-any': 'error',
+      // Un paramètre préfixé d'un souligné est réservé : la signature de
+      // computeHydro accueille déjà la v2 volumétrique. Voir docs/hydrologie.md.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       '@typescript-eslint/consistent-type-imports': 'error',
       'no-restricted-imports': [
         'error',
