@@ -15,6 +15,7 @@ export const RAIN_PER_CELL = 1;
 
 export interface WaterLayers {
   readonly size: RasterSize;
+  readonly heightWorld: Float32Array;
   readonly waterLevel: Float32Array;
   readonly flowAcc: Float32Array;
   readonly biome: Uint8Array;
@@ -60,6 +61,7 @@ export const useHydroStore = create<HydroState>((set) => ({
           set((s) => ({
             water: {
               size: reply.size,
+              heightWorld: reply.heightWorld,
               waterLevel: reply.waterLevel,
               flowAcc: reply.flowAcc,
               biome: reply.biome,

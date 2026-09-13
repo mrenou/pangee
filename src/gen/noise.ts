@@ -67,3 +67,31 @@ export function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
   return t * t * (3 - 2 * t);
 }
+
+/**
+ * Bruit de crêtes : on replie le bruit sur lui-même, ce qui transforme ses
+ * passages par zéro en arêtes vives. C'est ce qui fait des chaînes de montagnes
+ * là où un fBm ordinaire ne donne que des bosses isolées.
+ */
+export function ridgedCylinder(
+  noise3D: Noise3D,
+  lonDeg: number,
+  latDeg: number,
+  p: FbmParams,
+): number {
+  let sum = 0;
+  let amplitude = 1;
+  let frequency = p.frequency;
+  let norm = 0;
+
+  for (let o = 0; o < p.octaves; o += 1) {
+    const folded = 1 - Math.abs(sampleCylinder(noise3D, lonDeg, latDeg, frequency));
+    // Le carré resserre les arêtes et aplatit les vallées.
+    sum += folded * folded * amplitude;
+    norm += amplitude;
+    amplitude *= p.persistence;
+    frequency *= p.lacunarity;
+  }
+
+  return norm === 0 ? 0 : sum / norm;
+}

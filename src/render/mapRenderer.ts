@@ -14,6 +14,7 @@ import type { RiverNetwork } from '@/hydro/rivers';
 import { TERRAIN_FRAGMENT, TERRAIN_VERTEX } from '@/render/terrainShader';
 import { biomePaletteArray } from '@/render/palette';
 import { createRiverLayer } from '@/render/riverLayer';
+import { createSymbolLayer, type TerrainSample } from '@/render/symbolLayer';
 import {
   createByteTexture,
   createHeightTexture,
@@ -39,6 +40,8 @@ export interface MapRenderer {
   setViewport: (viewport: Viewport) => void;
   setView: (view: TerrainView) => void;
   /** Couches d'eau calculées par le worker, en référentiel monde. */
+  /** Relief assemblé et biomes, pour le semis des symboles. */
+  setTerrainSample: (sample: TerrainSample) => void;
   setWater: (
     size: RasterSize,
     waterLevel: Float32Array,
@@ -114,6 +117,9 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
   const mesh = new Mesh({ geometry, shader });
   app.stage.addChild(mesh);
 
+  const symbolLayer = createSymbolLayer();
+  app.stage.addChild(symbolLayer.container);
+
   const riverLayer = createRiverLayer();
   app.stage.addChild(riverLayer.container);
 
@@ -138,6 +144,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     viewSpan[0] = span.lonSpan;
     viewSpan[1] = span.latSpan;
     uniforms.update();
+    symbolLayer.setViewport(v);
     riverLayer.setViewport(v);
   };
 
@@ -155,6 +162,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     uniforms.uniforms.uMaxDepthM = view.maxDepthM;
     uniforms.uniforms.uShowFaults = view.showFaults ? 1 : 0;
     uniforms.uniforms.uStyle = view.bookStyle ? 1 : 0;
+    symbolLayer.setVisible(view.bookStyle);
     uniforms.update();
   };
 
@@ -201,10 +209,12 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     setViewport,
     setView,
     setWater,
+    setTerrainSample: (next) => symbolLayer.setTerrain(next),
     screenSize,
     destroy: () => {
       app.renderer.off('resize', resizeMesh);
       riverLayer.destroy();
+      symbolLayer.destroy();
       heightTexture.destroy();
       waterTexture.destroy();
       flowTexture.destroy();

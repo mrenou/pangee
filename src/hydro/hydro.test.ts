@@ -86,20 +86,30 @@ describe('cuvette fermée', () => {
 
 describe('deux cuvettes emboîtées', () => {
   // Une vallée verticale murée, qui descend vers le bord sud. Deux cuvettes
-  // séparées par un col, chacune avec sa propre cote de débordement.
+  // séparées par un col, chacune avec sa propre cote de débordement. Elles font
+  // trois cellules de haut : une cuvette d'une seule cellule est écartée comme
+  // artefact du bruit.
   //   99  99  99  99      le mur ferme la vallée, x wrappe donc 0 et 3 se touchent
-  //   99  20  99  99      cuvette A, fond à 20
+  //   99  10  99  99  \
+  //   99  10  99  99   >  cuvette A, fond à 10
+  //   99  10  99  99  /
   //   99  40  99  99      col A → B, à 40
-  //   99  10  99  99      cuvette B, fond à 10
+  //   99   0  99  99  \
+  //   99   0  99  99   >  cuvette B, fond à 0
+  //   99   0  99  99  /
   //   99  30  99  99      col B → sortie, à 30
   //   99   5  99  99
   //    0   0   0   0      bord sud : l'exutoire du monde
   // Attendu : B monte à 30, A monte à 40.
   const rows = [
     [99, 99, 99, 99],
-    [99, 20, 99, 99],
-    [99, 40, 99, 99],
     [99, 10, 99, 99],
+    [99, 10, 99, 99],
+    [99, 10, 99, 99],
+    [99, 40, 99, 99],
+    [99, 0, 99, 99],
+    [99, 0, 99, 99],
+    [99, 0, 99, 99],
     [99, 30, 99, 99],
     [99, 5, 99, 99],
     [0, 0, 0, 0],
@@ -108,22 +118,22 @@ describe('deux cuvettes emboîtées', () => {
   it('donne à chaque cuvette son propre niveau de débordement', () => {
     const state = run(rows);
     const w = state.size.width;
-    expect(state.filled[idx(1, 3, w)]).toBeCloseTo(30, 1);
-    expect(state.filled[idx(1, 1, w)]).toBeCloseTo(40, 1);
+    expect(state.filled[idx(1, 6, w)]).toBeCloseTo(30, 1);
+    expect(state.filled[idx(1, 2, w)]).toBeCloseTo(40, 1);
   });
 
   it('les traite comme deux lacs distincts', () => {
     const state = run(rows);
     const w = state.size.width;
     expect(state.lakes.length).toBe(2);
-    expect(state.lakeId[idx(1, 1, w)]).not.toBe(state.lakeId[idx(1, 3, w)]);
+    expect(state.lakeId[idx(1, 2, w)]).not.toBe(state.lakeId[idx(1, 6, w)]);
   });
 
   it('ne noie pas les cols eux-mêmes', () => {
     const state = run(rows);
     const w = state.size.width;
-    expect(state.lakeId[idx(1, 2, w)]).toBe(0);
     expect(state.lakeId[idx(1, 4, w)]).toBe(0);
+    expect(state.lakeId[idx(1, 8, w)]).toBe(0);
   });
 });
 
