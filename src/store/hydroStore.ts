@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { RiverNetwork } from '@/hydro/rivers';
 import type { RasterSize } from '@/model/world';
 import type { HydroRequest } from '@/workers/hydro.worker';
 import { requestHydro, sendHeightToHydro } from '@/workers/hydroClient';
@@ -17,6 +18,7 @@ export interface WaterLayers {
   readonly waterLevel: Float32Array;
   readonly flowAcc: Float32Array;
   readonly biome: Uint8Array;
+  readonly rivers: RiverNetwork;
   readonly riverThreshold: number;
 }
 
@@ -61,6 +63,7 @@ export const useHydroStore = create<HydroState>((set) => ({
               waterLevel: reply.waterLevel,
               flowAcc: reply.flowAcc,
               biome: reply.biome,
+              rivers: { points: reply.riverPoints, starts: reply.riverStarts },
               riverThreshold: reply.riverThreshold,
             },
             waterVersion: s.waterVersion + 1,
