@@ -42,3 +42,4 @@ blob-report/
 
 # Outils
 .serena/
+.vitest/
