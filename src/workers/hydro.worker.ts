@@ -7,7 +7,8 @@
 
 import * as Comlink from 'comlink';
 import { computeBiomes, createClimateBuffers, type ClimateBuffers } from '@/climate';
-import { assembleHeightWorld, computeHydro, riverThreshold } from '@/hydro';
+import { assembleHeightWorld, computeHydro, riverThreshold, DRY } from '@/hydro';
+import { extractRivers } from '@/hydro/rivers';
 import type { RingConfig } from '@/model/ring';
 import type { RasterSize } from '@/model/world';
 
@@ -26,6 +27,9 @@ export interface HydroReply {
   readonly flowAcc: Float32Array;
   /** Biomes dérivés, en référentiel monde. */
   readonly biome: Uint8Array;
+  /** Cours d'eau en polylignes, prêts à tracer. */
+  readonly riverPoints: Float32Array;
+  readonly riverStarts: Int32Array;
   readonly riverThreshold: number;
   readonly lakeCount: number;
   readonly elapsedMs: number;
@@ -60,6 +64,12 @@ const api = {
     });
 
     const threshold = riverThreshold(size, request.rainPerCell);
+
+    const isWater = new Uint8Array(state.waterLevel.length);
+    for (let i = 0; i < isWater.length; i += 1) {
+      isWater[i] = state.waterLevel[i]! > DRY && state.waterLevel[i]! > heightWorld[i]! ? 1 : 0;
+    }
+    const rivers = extractRivers(size, state.flowAcc, state.flowDir, isWater, threshold);
     computeBiomes(
       {
         size,
@@ -84,11 +94,19 @@ const api = {
       waterLevel,
       flowAcc,
       biome,
+      riverPoints: rivers.points,
+      riverStarts: rivers.starts,
       riverThreshold: threshold,
       lakeCount: state.lakes.length,
       elapsedMs: performance.now() - started,
     };
-    return Comlink.transfer(reply, [waterLevel.buffer, flowAcc.buffer, biome.buffer]);
+    return Comlink.transfer(reply, [
+      waterLevel.buffer,
+      flowAcc.buffer,
+      biome.buffer,
+      rivers.points.buffer,
+      rivers.starts.buffer,
+    ]);
   },
 };
 

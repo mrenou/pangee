@@ -156,7 +156,22 @@ void main() {
 
   // Les couches d'eau sont déjà assemblées : on les lit sans décalage.
   vec2 worldUv = vec2(fract((lonLat.x + 180.0) / 360.0), (90.0 - lonLat.y) / 180.0);
-  float waterLevel = texture(uWaterLevel, worldUv).r;
+
+  // Le niveau d'eau saute brutalement d'une cellule sèche à une cellule noyée :
+  // il ne peut donc pas être interpolé, et une rive de lac sortirait en
+  // marches d'escalier. On perturbe la lecture d'une fraction de cellule, ce
+  // qui donne une rive irrégulière — ce que ferait une main qui dessine.
+  float cellDeg = 360.0 / uRasterSize.x;
+  vec2 shoreWobble = vec2(
+    valueNoise(lonLat * 21.0) - 0.5,
+    valueNoise(lonLat * 21.0 + 11.7) - 0.5
+  ) * cellDeg * 1.1;
+  vec2 waterUv = vec2(
+    fract((lonLat.x + shoreWobble.x + 180.0) / 360.0),
+    clamp((90.0 - lonLat.y - shoreWobble.y) / 180.0, 0.0, 1.0)
+  );
+
+  float waterLevel = texture(uWaterLevel, waterUv).r;
   float flowAcc = texture(uFlowAcc, worldUv).r;
   // Le biome est catégoriel, donc échantillonné au plus proche : à fort zoom,
   // ses frontières seraient des marches d'escalier d'une cellule. On perturbe
@@ -250,13 +265,9 @@ void main() {
   // lecture de la carte, il ne doit jamais se noyer dans la bathymétrie.
   color = mix(color, vec3(0.149, 0.114, 0.082), coast * 0.92);
 
-  // Rivières : l'encre s'installe quand la surface drainée dépasse le seuil,
-  // et fonce avec le débit. Le trait à largeur variable viendra avec le style.
-  if (uHasWater > 0.5 && !submerged && flowAcc > uRiverThreshold) {
-    float strength = clamp(log2(flowAcc / uRiverThreshold) / 6.0, 0.0, 1.0);
-    vec3 riverInk = vec3(0.325, 0.427, 0.478);
-    color = mix(color, riverInk, 0.35 + 0.55 * strength);
-  }
+  // Les cours d'eau ne sont plus tracés ici : un test par pixel donnait des
+  // marches d'escalier d'une cellule. Ils sont dessinés en polylignes à
+  // largeur variable par-dessus le terrain, voir src/render/riverLayer.ts.
 
   // Trait de faille : la latitude de coupure, où le cisaillement a lieu.
   float faultWidth = uViewSpanDeg.y / 300.0;

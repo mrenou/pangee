@@ -109,6 +109,7 @@ export function MapCanvas() {
         water.waterLevel,
         water.flowAcc,
         water.biome,
+        water.rivers,
         water.riverThreshold,
       );
     }

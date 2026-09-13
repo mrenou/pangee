@@ -10,8 +10,10 @@ import { ringOffsetsDeg } from '@/model/time';
 import { normalizeViewport, visibleSpanDeg, type Viewport } from '@/model/viewport';
 import type { RingConfig } from '@/model/ring';
 import type { RasterSize } from '@/model/world';
+import type { RiverNetwork } from '@/hydro/rivers';
 import { TERRAIN_FRAGMENT, TERRAIN_VERTEX } from '@/render/terrainShader';
 import { biomePaletteArray } from '@/render/palette';
+import { createRiverLayer } from '@/render/riverLayer';
 import {
   createByteTexture,
   createHeightTexture,
@@ -42,6 +44,7 @@ export interface MapRenderer {
     waterLevel: Float32Array,
     flowAcc: Float32Array,
     biome: Uint8Array,
+    rivers: RiverNetwork,
     riverThreshold: number,
   ) => void;
   /** Taille courante du canvas, en pixels CSS. */
@@ -111,6 +114,9 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
   const mesh = new Mesh({ geometry, shader });
   app.stage.addChild(mesh);
 
+  const riverLayer = createRiverLayer();
+  app.stage.addChild(riverLayer.container);
+
   const resizeMesh = (): void => {
     mesh.scale.set(app.screen.width, app.screen.height);
   };
@@ -132,6 +138,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     viewSpan[0] = span.lonSpan;
     viewSpan[1] = span.latSpan;
     uniforms.update();
+    riverLayer.setViewport(v);
   };
 
   const setView = (view: TerrainView): void => {
@@ -168,6 +175,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     waterLevel: Float32Array,
     flowAcc: Float32Array,
     biome: Uint8Array,
+    rivers: RiverNetwork,
     riverThreshold: number,
   ): void => {
     const previous = [waterTexture, flowTexture, biomeTexture];
@@ -183,6 +191,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     uniforms.uniforms.uHasWater = 1;
     uniforms.uniforms.uRiverThreshold = riverThreshold;
     uniforms.update();
+    riverLayer.setNetwork(rivers);
     for (const texture of previous) texture.destroy();
   };
 
@@ -195,6 +204,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     screenSize,
     destroy: () => {
       app.renderer.off('resize', resizeMesh);
+      riverLayer.destroy();
       heightTexture.destroy();
       waterTexture.destroy();
       flowTexture.destroy();
