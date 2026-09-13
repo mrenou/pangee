@@ -13,6 +13,7 @@ interface WorldState {
   radiusKm: number;
   seaLevelM: number;
   showFaults: boolean;
+  bookStyle: boolean;
 
   terrain: TerrainParams;
   rasterSize: RasterSize;
@@ -28,6 +29,7 @@ interface WorldState {
   setCut: (which: 'north' | 'south', lat: number) => void;
   setSeaLevel: (seaLevelM: number) => void;
   setShowFaults: (showFaults: boolean) => void;
+  setBookStyle: (bookStyle: boolean) => void;
   setTerrain: (patch: Partial<TerrainParams>) => void;
   regenerate: () => Promise<void>;
 }
@@ -46,6 +48,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   radiusKm: DEFAULT_SETTINGS.radiusKm,
   seaLevelM: DEFAULT_SETTINGS.seaLevelM,
   showFaults: true,
+  bookStyle: true,
 
   terrain: DEFAULT_TERRAIN_PARAMS,
   rasterSize: RASTER_2K,
@@ -83,6 +86,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
   setSeaLevel: (seaLevelM) => set({ seaLevelM }),
   setShowFaults: (showFaults) => set({ showFaults }),
+  setBookStyle: (bookStyle) => set({ bookStyle }),
   setTerrain: (patch) => set((s) => ({ terrain: { ...s.terrain, ...patch } })),
 
   regenerate: async () => {

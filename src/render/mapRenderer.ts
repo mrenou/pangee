@@ -11,7 +11,9 @@ import { normalizeViewport, visibleSpanDeg, type Viewport } from '@/model/viewpo
 import type { RingConfig } from '@/model/ring';
 import type { RasterSize } from '@/model/world';
 import { TERRAIN_FRAGMENT, TERRAIN_VERTEX } from '@/render/terrainShader';
+import { biomePaletteArray } from '@/render/palette';
 import {
+  createByteTexture,
   createHeightTexture,
   createWorldTexture,
   type HeightTexture,
@@ -24,6 +26,8 @@ export interface TerrainView {
   readonly maxAltitudeM: number;
   readonly maxDepthM: number;
   readonly showFaults: boolean;
+  /** Habillage « carte de livre » : parchemin, hachures, teintes de biome. */
+  readonly bookStyle: boolean;
 }
 
 export interface MapRenderer {
@@ -37,6 +41,7 @@ export interface MapRenderer {
     size: RasterSize,
     waterLevel: Float32Array,
     flowAcc: Float32Array,
+    biome: Uint8Array,
     riverThreshold: number,
   ) => void;
   /** Taille courante du canvas, en pixels CSS. */
@@ -69,6 +74,8 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     uShowFaults: { value: 1, type: 'f32' },
     uHasWater: { value: 0, type: 'f32' },
     uRiverThreshold: { value: 1e9, type: 'f32' },
+    uStyle: { value: 1, type: 'f32' },
+    uBiomeColor: { value: biomePaletteArray(), type: 'vec3<f32>', size: 14 },
   });
 
   // Un seul texel tant qu'aucun relief n'est arrivé : le shader a besoin d'une
@@ -77,6 +84,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
   let heightTexture: HeightTexture = createHeightTexture(onePixel, new Float32Array([0]));
   let waterTexture: HeightTexture = createWorldTexture(onePixel, new Float32Array([0]));
   let flowTexture: HeightTexture = createWorldTexture(onePixel, new Float32Array([0]));
+  let biomeTexture: HeightTexture = createByteTexture(onePixel, new Uint8Array([0]));
 
   const shader = Shader.from({
     gl: { vertex: TERRAIN_VERTEX, fragment: TERRAIN_FRAGMENT },
@@ -87,6 +95,8 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
       uWaterLevelSampler: waterTexture.texture.source.style,
       uFlowAcc: flowTexture.texture.source,
       uFlowAccSampler: flowTexture.texture.source.style,
+      uBiome: biomeTexture.texture.source,
+      uBiomeSampler: biomeTexture.texture.source.style,
       uniforms,
     },
   });
@@ -137,6 +147,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     uniforms.uniforms.uMaxAltitudeM = view.maxAltitudeM;
     uniforms.uniforms.uMaxDepthM = view.maxDepthM;
     uniforms.uniforms.uShowFaults = view.showFaults ? 1 : 0;
+    uniforms.uniforms.uStyle = view.bookStyle ? 1 : 0;
     uniforms.update();
   };
 
@@ -156,21 +167,23 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     size: RasterSize,
     waterLevel: Float32Array,
     flowAcc: Float32Array,
+    biome: Uint8Array,
     riverThreshold: number,
   ): void => {
-    const previousWater = waterTexture;
-    const previousFlow = flowTexture;
+    const previous = [waterTexture, flowTexture, biomeTexture];
     waterTexture = createWorldTexture(size, waterLevel);
     flowTexture = createWorldTexture(size, flowAcc);
+    biomeTexture = createByteTexture(size, biome);
     shader.resources.uWaterLevel = waterTexture.texture.source;
     shader.resources.uWaterLevelSampler = waterTexture.texture.source.style;
     shader.resources.uFlowAcc = flowTexture.texture.source;
     shader.resources.uFlowAccSampler = flowTexture.texture.source.style;
+    shader.resources.uBiome = biomeTexture.texture.source;
+    shader.resources.uBiomeSampler = biomeTexture.texture.source.style;
     uniforms.uniforms.uHasWater = 1;
     uniforms.uniforms.uRiverThreshold = riverThreshold;
     uniforms.update();
-    previousWater.destroy();
-    previousFlow.destroy();
+    for (const texture of previous) texture.destroy();
   };
 
   return {
@@ -185,6 +198,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
       heightTexture.destroy();
       waterTexture.destroy();
       flowTexture.destroy();
+      biomeTexture.destroy();
       app.destroy(true, { children: true });
     },
   };

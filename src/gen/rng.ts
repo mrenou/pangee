@@ -7,7 +7,7 @@
  * le relief. Voir docs/generation.md.
  */
 
-export type GenDomain = 'relief' | 'places' | 'roads' | 'names';
+export type GenDomain = 'relief' | 'climate' | 'places' | 'roads' | 'names';
 
 /** Générateur pseudo-aléatoire uniforme sur [0, 1[. */
 export type Rng = () => number;

@@ -12,8 +12,8 @@ export interface HeightTexture {
   readonly texture: Texture;
   readonly source: BufferImageSource;
   readonly size: RasterSize;
-  /** Réécrit tout ou partie du relief et déclenche le téléversement. */
-  update: (height: Float32Array) => void;
+  /** Réécrit la couche et déclenche le téléversement. */
+  update: (data: Float32Array) => void;
   destroy: () => void;
 }
 
@@ -56,4 +56,32 @@ export function createHeightTexture(size: RasterSize, height: Float32Array): Hei
  */
 export function createWorldTexture(size: RasterSize, data: Float32Array): HeightTexture {
   return createHeightTexture(size, data);
+}
+
+/**
+ * Couche catégorielle, un octet par cellule : le shader relit l'identifiant en
+ * multipliant par 255. Aucun filtrage, sous peine de fabriquer des biomes qui
+ * n'existent pas entre deux voisins.
+ */
+export function createByteTexture(size: RasterSize, data: Uint8Array): HeightTexture {
+  const source = new BufferImageSource({
+    resource: data,
+    width: size.width,
+    height: size.height,
+    format: 'r8unorm',
+    scaleMode: 'nearest',
+    addressModeU: 'repeat',
+    addressModeV: 'clamp-to-edge',
+    alphaMode: 'no-premultiply-alpha',
+  });
+
+  const texture = new Texture({ source });
+
+  return {
+    texture,
+    source,
+    size,
+    update: () => source.update(),
+    destroy: () => texture.destroy(true),
+  };
 }

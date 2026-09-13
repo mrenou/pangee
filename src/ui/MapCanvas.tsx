@@ -74,16 +74,18 @@ export function MapCanvas() {
   const tDays = useWorldStore((s) => s.tDays);
   const seaLevelM = useWorldStore((s) => s.seaLevelM);
   const showFaults = useWorldStore((s) => s.showFaults);
+  const bookStyle = useWorldStore((s) => s.bookStyle);
   useEffect(() => {
     rendererRef.current?.setView({
       ringConfig,
       tDays,
       seaLevelM,
       showFaults,
+      bookStyle,
       maxAltitudeM: MAX_ALTITUDE,
       maxDepthM: MAX_DEPTH,
     });
-  }, [ringConfig, tDays, seaLevelM, showFaults]);
+  }, [ringConfig, tDays, seaLevelM, showFaults, bookStyle]);
 
   // L'eau est recalculée après coup : le terrain a déjà glissé, seul un
   // uniforme ayant changé. Voir docs/temps.md.
@@ -94,6 +96,7 @@ export function MapCanvas() {
       tDays,
       seaLevelM,
       rainPerCell: RAIN_PER_CELL,
+      seed: useWorldStore.getState().terrain.seed,
     });
   }, [heightVersion, ringConfig, tDays, seaLevelM]);
 
@@ -105,6 +108,7 @@ export function MapCanvas() {
         water.size,
         water.waterLevel,
         water.flowAcc,
+        water.biome,
         water.riverThreshold,
       );
     }

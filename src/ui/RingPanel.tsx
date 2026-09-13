@@ -32,6 +32,8 @@ export function RingPanel() {
   const setCut = useWorldStore((s) => s.setCut);
   const setSeaLevel = useWorldStore((s) => s.setSeaLevel);
   const setShowFaults = useWorldStore((s) => s.setShowFaults);
+  const bookStyle = useWorldStore((s) => s.bookStyle);
+  const setBookStyle = useWorldStore((s) => s.setBookStyle);
 
   const offsets = ringOffsetsDeg(cfg, tDays);
   const years = Math.floor(tDays / 365);
@@ -128,6 +130,16 @@ export function RingPanel() {
           className="accent-ink-soft"
         />
         Marquer les lignes de faille
+      </label>
+
+      <label className="mt-2 flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={bookStyle}
+          onChange={(e) => setBookStyle(e.currentTarget.checked)}
+          className="accent-ink-soft"
+        />
+        Habillage carte de livre
       </label>
 
       <HydroStatus />

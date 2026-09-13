@@ -34,6 +34,7 @@ out vec4 fragColor;
 uniform sampler2D uHeight;      // référentiel local, wrap est-ouest
 uniform sampler2D uWaterLevel;  // référentiel monde, déjà assemblé
 uniform sampler2D uFlowAcc;     // référentiel monde, déjà assemblé
+uniform sampler2D uBiome;       // référentiel monde, déjà assemblé
 
 // Caméra
 uniform vec2  uCenter;       // (lonWorld, lat) au centre de l'écran
@@ -51,6 +52,8 @@ uniform float uMaxDepthM;
 uniform float uShowFaults;
 uniform float uHasWater;        // 0 tant que l'hydrologie n'a pas répondu
 uniform float uRiverThreshold;
+uniform vec3 uBiomeColor[14];
+uniform float uStyle;           // 0 = relief nu, 1 = carte de livre
 
 const float PI = 3.14159265359;
 
@@ -103,6 +106,30 @@ vec3 landColor(float t) {
   return c;
 }
 
+/** Bruit de valeur, tuilable en longitude, pour le grain et les hachures. */
+float hash21(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+
+float valueNoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash21(i);
+  float b = hash21(i + vec2(1.0, 0.0));
+  float c = hash21(i + vec2(0.0, 1.0));
+  float d = hash21(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+/** Fibre du parchemin : deux octaves suffisent, on cherche une matière. */
+float parchmentGrain(vec2 lonLat) {
+  float g = valueNoise(lonLat * 12.0) * 0.6 + valueNoise(lonLat * 47.0) * 0.4;
+  return g;
+}
+
 vec3 seaColor(float t) {
   vec3 shallow = vec3(0.639, 0.706, 0.714);
   vec3 mid     = vec3(0.494, 0.596, 0.635);
@@ -131,6 +158,20 @@ void main() {
   vec2 worldUv = vec2(fract((lonLat.x + 180.0) / 360.0), (90.0 - lonLat.y) / 180.0);
   float waterLevel = texture(uWaterLevel, worldUv).r;
   float flowAcc = texture(uFlowAcc, worldUv).r;
+  // Le biome est catégoriel, donc échantillonné au plus proche : à fort zoom,
+  // ses frontières seraient des marches d'escalier d'une cellule. On perturbe
+  // la coordonnée de lecture d'environ une cellule, ce qui rend les limites
+  // irrégulières sans jamais inventer de biome intermédiaire.
+  float biomeJitterDeg = 360.0 / uRasterSize.x;
+  vec2 biomeWobble = vec2(
+    valueNoise(lonLat * 9.0) - 0.5,
+    valueNoise(lonLat * 9.0 + 31.4) - 0.5
+  ) * biomeJitterDeg * 1.6;
+  vec2 biomeUv = vec2(
+    fract((lonLat.x + biomeWobble.x + 180.0) / 360.0),
+    clamp((90.0 - lonLat.y - biomeWobble.y) / 180.0, 0.0, 1.0)
+  );
+  int biomeId = int(texture(uBiome, biomeUv).r * 255.0 + 0.5);
 
   // Tant que l'hydrologie n'a pas répondu, le niveau de la mer sert de
   // surface d'eau : le terrain ne doit jamais attendre l'eau pour s'afficher.
@@ -149,7 +190,15 @@ void main() {
   vec3 color;
   if (!submerged) {
     float t = clamp(depthOrAlt / uMaxAltitudeM, 0.0, 1.0);
-    color = landColor(t);
+
+    // La teinte vient du biome, le modelé vient du relief. En dessous d'un
+    // certain style, on garde la seule rampe d'altitude.
+    vec3 fromRelief = landColor(t);
+    vec3 fromBiome = uHasWater > 0.5 ? uBiomeColor[clamp(biomeId, 0, 13)] : fromRelief;
+    color = mix(fromRelief, mix(fromBiome, fromRelief, 0.35), uStyle);
+
+    // Les sommets restent clairs quel que soit le biome : c'est la neige.
+    color = mix(color, vec3(0.898, 0.878, 0.831), smoothstep(0.75, 1.0, t) * 0.85);
 
     // Lumière rasante venue du nord-ouest, comme sur une carte gravée.
     float shade = clamp(0.5 + (hx * 0.5 + hy * 0.5) / 900.0, 0.15, 1.0);
@@ -162,8 +211,12 @@ void main() {
     color = seaColor(t);
   }
 
-  // Trait d'encre sur le trait de côte : on détecte le passage par zéro dans
-  // le voisinage immédiat, à une largeur constante à l'écran.
+  // Trait de côte, et hachures parallèles au large.
+  //
+  // On n'a pas de distance signée au trait de côte : on l'approche par la
+  // hauteur d'eau divisée par la pente locale, ce qui donne, en degrés, la
+  // distance au passage par zéro. C'est exact sur une plage régulière et
+  // suffisant partout ailleurs.
   float coastWidth = max(stepDeg, uViewSpanDeg.y / 400.0);
   float hE = sampleHeight(localUv(lonLat + vec2(coastWidth, 0.0))) - surfaceM;
   float hW = sampleHeight(localUv(lonLat - vec2(coastWidth, 0.0))) - surfaceM;
@@ -172,7 +225,30 @@ void main() {
   float minN = min(min(hE, hW), min(hN, hS));
   float maxN = max(max(hE, hW), max(hN, hS));
   float coast = step(minN, 0.0) * step(0.0, maxN);
-  color = mix(color, vec3(0.169, 0.129, 0.094), coast * 0.75);
+
+  if (uStyle > 0.5 && submerged) {
+    // Hachures par paliers de profondeur, comme les bathymétries gravées : une
+    // isoligne tous les cinquante mètres. L'espacement à l'écran suit alors la
+    // pente du fond, serré sur un talus, large sur un plateau — et il ne
+    // dépend d'aucune estimation de distance, qui devient instable dès que le
+    // fond s'aplatit.
+    float depth = surfaceM - h;
+    float band = depth / 180.0;
+    float jitter = valueNoise(lonLat * 24.0) * 0.25;
+    float line = abs(fract(band + jitter) - 0.5);
+
+    // Largeur constante à l'écran : on la mesure sur la dérivée de band.
+    float width = fwidth(band) * 0.8;
+    float stripe = 1.0 - smoothstep(width * 0.5, width * 1.5, line);
+
+    // Les hachures n'accompagnent que les abords : au large, le fond est nu.
+    float fade = 1.0 - smoothstep(200.0, 900.0, depth);
+    color = mix(color, vec3(0.325, 0.404, 0.443), stripe * fade * 0.4);
+  }
+
+  // Le trait de côte passe par-dessus les hachures : c'est lui qui porte la
+  // lecture de la carte, il ne doit jamais se noyer dans la bathymétrie.
+  color = mix(color, vec3(0.149, 0.114, 0.082), coast * 0.92);
 
   // Rivières : l'encre s'installe quand la surface drainée dépasse le seuil,
   // et fonce avec le débit. Le trait à largeur variable viendra avec le style.
@@ -188,9 +264,22 @@ void main() {
               + step(abs(lonLat.y - uCutLat.y), faultWidth);
   color = mix(color, vec3(0.353, 0.208, 0.161), clamp(fault, 0.0, 1.0) * 0.45 * uShowFaults);
 
-  // Grain de parchemin, déterministe et sans texture.
-  float grain = fract(sin(dot(lonLat, vec2(12.9898, 78.233))) * 43758.5453);
-  color *= 0.97 + 0.06 * grain;
+  // Matière du parchemin : une fibre douce, plus des taches très basse
+  // fréquence qui évitent les aplats trop propres.
+  if (uStyle > 0.5) {
+    float grain = parchmentGrain(lonLat);
+    float stain = valueNoise(lonLat * 1.7);
+    color *= 0.92 + 0.14 * grain;
+    color = mix(color, vec3(0.804, 0.718, 0.545), stain * 0.1);
+
+    // Vignette : les bords de la feuille ont pris le jour.
+    vec2 fromCenter = (vScreenUv - 0.5) * 2.0;
+    float vignette = 1.0 - dot(fromCenter, fromCenter) * 0.16;
+    color *= clamp(vignette, 0.0, 1.0);
+  } else {
+    float grain = fract(sin(dot(lonLat, vec2(12.9898, 78.233))) * 43758.5453);
+    color *= 0.97 + 0.06 * grain;
+  }
 
   fragColor = vec4(color, 1.0);
 }
