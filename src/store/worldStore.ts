@@ -96,17 +96,24 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   status: 'idle',
   error: undefined,
 
-  setTDays: (tDays) => set({ tDays }),
+  // Tous ces réglages font partie du document : les changer sans enregistrer
+  // ferait perdre au MJ la configuration de son monde au rechargement.
+  setTDays: (tDays) => {
+    set({ tDays });
+    get().scheduleAutosave();
+  },
 
-  setOmega: (ring, omegaDegPerDay) =>
+  setOmega: (ring, omegaDegPerDay) => {
     set((s) => ({
       ringConfig: {
         ...s.ringConfig,
         rings: { ...s.ringConfig.rings, [ring]: { id: ring, omegaDegPerDay } },
       },
-    })),
+    }));
+    get().scheduleAutosave();
+  },
 
-  setCut: (which, lat) =>
+  setCut: (which, lat) => {
     set((s) => {
       const cutNorthLat = which === 'north' ? lat : s.ringConfig.cutNorthLat;
       const cutSouthLat = which === 'south' ? lat : s.ringConfig.cutSouthLat;
@@ -120,9 +127,14 @@ export const useWorldStore = create<WorldState>((set, get) => ({
           cutSouthLat: Math.min(cutSouthLat, cutNorthLat - gap),
         },
       };
-    }),
+    });
+    get().scheduleAutosave();
+  },
 
-  setSeaLevel: (seaLevelM) => set({ seaLevelM }),
+  setSeaLevel: (seaLevelM) => {
+    set({ seaLevelM });
+    get().scheduleAutosave();
+  },
   setShowFaults: (showFaults) => set({ showFaults }),
   setBookStyle: (bookStyle) => set({ bookStyle }),
   setTerrain: (patch) => set((s) => ({ terrain: { ...s.terrain, ...patch } })),

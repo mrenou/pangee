@@ -22,6 +22,46 @@ function pushView(renderer: MapRenderer): void {
 }
 
 /**
+ * Transmet au moteur l'intégralité de l'état courant.
+ *
+ * Le moteur naît après le premier rendu de React, et en développement le
+ * composant est monté deux fois : les effets qui lui poussent l'état ont donc
+ * déjà tourné dans le vide, et rien ne les rejoue si leurs dépendances ne
+ * changent plus. Oublier une couche ici, c'est la voir manquer pour de bon —
+ * le relief manquait, et la carte restait un aplat de parchemin.
+ */
+function pushAll(renderer: MapRenderer): void {
+  const world = useWorldStore.getState();
+
+  pushView(renderer);
+  renderer.setViewport(useViewportStore.getState().viewport);
+  renderer.setPlaces(world.places);
+  renderer.setRoads(world.roads);
+
+  if (world.height) renderer.setHeight(world.rasterSize, world.height);
+
+  const { water } = useHydroStore.getState();
+  if (water) {
+    renderer.setTerrainSample({
+      size: water.size,
+      heightWorld: water.heightWorld,
+      biome: water.biome,
+      waterLevel: water.waterLevel,
+      seaLevelM: world.seaLevelM,
+    });
+    renderer.setWater(
+      water.size,
+      water.waterLevel,
+      water.flowAcc,
+      water.biome,
+      water.rivers,
+      water.riverThreshold,
+      water.tDays,
+    );
+  }
+}
+
+/**
  * Hôte React du canvas Pixi. Monte le moteur de rendu, lui pousse l'état du
  * store, et rien d'autre. Voir docs/rendu.md.
  */
@@ -90,10 +130,7 @@ export function MapCanvas() {
       // poussent l'état ont donc déjà tourné dans le vide, et rien ne les
       // rejouera si leurs dépendances ne changent pas. On lui transmet l'état
       // courant une fois, ici.
-      pushView(created);
-      created.setPlaces(useWorldStore.getState().places);
-      created.setRoads(useWorldStore.getState().roads);
-      created.setViewport(useViewportStore.getState().viewport);
+      pushAll(created);
 
       // On reprend le monde laissé par la session précédente ; à défaut, on en
       // façonne un neuf. La carte ne doit jamais s'ouvrir sur du vide.

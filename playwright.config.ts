@@ -4,14 +4,20 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: 'http://localhost:5173',
     // Le rendu logiciel suffit : on vérifie que le shader compile et que la
     // carte se dessine, pas les performances.
     launchOptions: { args: ['--use-gl=angle', '--use-angle=swiftshader'] },
   },
+  // Les tests visent le serveur de développement, et non un build servi en
+  // statique : c'est là que React monte chaque composant deux fois, ce qui
+  // révèle les erreurs de cycle de vie. Un défaut de cette famille a échappé
+  // deux fois à une suite qui ne testait que le build — le moteur de rendu ne
+  // recevait jamais le relief, et la carte restait un aplat de parchemin.
+  // Le build de production reste vérifié par `npm run build` en intégration.
   webServer: {
-    command: 'npm run build && npm run preview -- --port 4173',
-    url: 'http://localhost:4173',
+    command: 'npm run dev -- --port 5173',
+    url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
   },
