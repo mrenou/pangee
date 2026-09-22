@@ -102,6 +102,17 @@ niveau de la mer. Elle est noyée de toute façon, et l'écart ne se voit pas à
 La règle vaut pour le shader **et** pour le semis des symboles, sans quoi des arbres flotteraient
 sur la mer. Elle vit donc en clair dans `src/render/waterSurface.ts`, testée, et le GLSL la recopie.
 
+### Des courbes tracées à la main
+
+Les symboles sont dessinés en degrés, dans un conteneur mis à l'échelle du zoom. PixiJS décide de
+la finesse d'une courbe d'après ses coordonnées locales — ici de l'ordre du centième de degré — et
+l'approche alors par deux ou trois segments droits : les collines sortaient en crochets anguleux
+plutôt qu'en dos arrondis.
+
+Les courbes de ce dossier sont donc échantillonnées à la main, avec un nombre de points fixe. Les
+icônes de lieux échappent à la règle : elles sont tracées en pixels écran, où PixiJS mesure
+correctement.
+
 ### Un semis qui ne bouge pas
 
 Les symboles étaient semés sur une grille dont le pas se déduisait du zoom. Chaque cran de molette
