@@ -12,6 +12,7 @@ import { Biome } from '@/climate';
 import { columnOfLon, idx, rowOfLat } from '@/model/coords';
 import type { Viewport } from '@/model/viewport';
 import type { RasterSize } from '@/model/world';
+import { isSubmerged } from '@/render/waterSurface';
 import {
   drawConifer,
   drawDune,
@@ -102,8 +103,8 @@ export function createSymbolLayer(): SymbolLayer {
 
         const cell = idx(columnOfLon(lon, size.width), rowOfLat(lat, size.height), size.width);
 
-        // Rien ne pousse sur l'eau.
-        if (waterLevel[cell]! > heightWorld[cell]!) continue;
+        // Rien ne pousse sur l'eau, selon la même règle que le shader.
+        if (isSubmerged(heightWorld[cell]!, seaLevelM, waterLevel[cell])) continue;
 
         const altitude = heightWorld[cell]! - seaLevelM;
         if (altitude <= 0) continue;

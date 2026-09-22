@@ -80,6 +80,22 @@ que leur anneau a parcouru depuis ce calcul — un simple `uWaterRingOffsetDeg` 
 `uRingOffsetDeg`. Lacs et rivières glissent alors avec la terre, et le prochain résultat corrige la
 forme sans à-coup.
 
+### Quelle eau recouvre une cellule
+
+La surface d'eau retenue est la **plus haute** du niveau de la mer et du plan d'eau calculé par
+l'hydrologie. Le niveau de la mer est un réglage, connu à l'instant où le MJ le change ; le plan
+d'eau, lui, arrive après coup et n'apporte que les lacs et les mers intérieures.
+
+S'en remettre au seul plan d'eau faisait attendre un recalcul pour voir la mer monter : en relevant
+le niveau, les terres basses pâlissaient — leur altitude relative devenait nulle — sans jamais
+passer au bleu.
+
+Contrepartie assumée : une cuvette fermée dont le plan d'eau est plus bas que la mer est rendue au
+niveau de la mer. Elle est noyée de toute façon, et l'écart ne se voit pas à cette échelle.
+
+La règle vaut pour le shader **et** pour le semis des symboles, sans quoi des arbres flotteraient
+sur la mer. Elle vit donc en clair dans `src/render/waterSurface.ts`, testée, et le GLSL la recopie.
+
 ### Redessiner quand les données changent
 
 PixiJS ne redessine que si la scène a changé. Remplacer une texture ou écrire un uniforme ne l'en
