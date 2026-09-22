@@ -12,6 +12,7 @@ import { Biome } from '@/climate';
 import { columnOfLon, idx, rowOfLat } from '@/model/coords';
 import type { Viewport } from '@/model/viewport';
 import type { RasterSize } from '@/model/world';
+import { FINE_STEP_DEG, seedPoint, strideFor } from '@/render/seedGrid';
 import { isSubmerged } from '@/render/waterSurface';
 import {
   drawConifer,
@@ -53,15 +54,6 @@ export interface SymbolLayer {
   destroy: () => void;
 }
 
-/** Hash déterministe d'une case de la grille de semis. */
-function hash2(i: number, j: number): number {
-  let h = Math.imul(i, 0x27d4eb2d) ^ Math.imul(j, 0x165667b1);
-  h ^= h >>> 15;
-  h = Math.imul(h, 0x2545f491);
-  h ^= h >>> 13;
-  return (h >>> 0) / 4294967296;
-}
-
 export function createSymbolLayer(): SymbolLayer {
   const container = new Container();
   const graphics = new Graphics();
@@ -76,29 +68,27 @@ export function createSymbolLayer(): SymbolLayer {
     if (!sample) return;
 
     const { pixelsPerDegree, centerLonWorld, centerLat, widthPx, heightPx } = viewport;
-    const stepDeg = SPACING_PX / pixelsPerDegree;
     const symbolDeg = SYMBOL_PX / pixelsPerDegree;
 
     const halfLon = (widthPx / 2 / pixelsPerDegree) * (1 + MARGIN);
     const halfLat = (heightPx / 2 / pixelsPerDegree) * (1 + MARGIN);
 
-    const fromI = Math.floor((centerLonWorld - halfLon) / stepDeg);
-    const toI = Math.ceil((centerLonWorld + halfLon) / stepDeg);
-    const fromJ = Math.floor((centerLat - halfLat) / stepDeg);
-    const toJ = Math.ceil((centerLat + halfLat) / stepDeg);
+    // Le pas de parcours s'ajuste au zoom, la grille reste celle du monde : un
+    // symbole ne bouge donc jamais, il apparaît ou disparaît.
+    const stride = strideFor(pixelsPerDegree, SPACING_PX);
+    const align = (value: number): number => Math.floor(value / FINE_STEP_DEG / stride) * stride;
+
+    const fromI = align(centerLonWorld - halfLon);
+    const toI = align(centerLonWorld + halfLon) + stride;
+    const fromJ = align(centerLat - halfLat);
+    const toJ = align(centerLat + halfLat) + stride;
 
     const { size, heightWorld, biome, waterLevel, seaLevelM } = sample;
     let drawn = 0;
 
-    for (let j = fromJ; j <= toJ && drawn < MAX_SYMBOLS; j += 1) {
-      for (let i = fromI; i <= toI && drawn < MAX_SYMBOLS; i += 1) {
-        const r1 = hash2(i, j);
-        const r2 = hash2(i + 9871, j - 1237);
-        const r3 = hash2(i - 421, j + 7717);
-
-        // Décalage dans la case : un semis régulier trahirait la grille.
-        const lon = (i + 0.5 + (r1 - 0.5) * 1.05) * stepDeg;
-        const lat = (j + 0.5 + (r2 - 0.5) * 1.05) * stepDeg;
+    for (let j = fromJ; j <= toJ && drawn < MAX_SYMBOLS; j += stride) {
+      for (let i = fromI; i <= toI && drawn < MAX_SYMBOLS; i += stride) {
+        const { lon, lat, r1, r2, r3 } = seedPoint(i, j);
         if (lat > 89 || lat < -89) continue;
 
         const cell = idx(columnOfLon(lon, size.width), rowOfLat(lat, size.height), size.width);
@@ -163,11 +153,13 @@ export function createSymbolLayer(): SymbolLayer {
 
     // On ne redessine que lorsque la zone semée doit changer : le pan glisse
     // dans la marge sans reconstruire quoi que ce soit.
-    const stepDeg = SPACING_PX / pixelsPerDegree;
+    const stride = strideFor(pixelsPerDegree, SPACING_PX);
+    const window = FINE_STEP_DEG * stride * 4;
     const key = [
+      stride,
       pixelsPerDegree.toFixed(3),
-      Math.round(centerLonWorld / stepDeg / 4),
-      Math.round(centerLat / stepDeg / 4),
+      Math.round(centerLonWorld / window),
+      Math.round(centerLat / window),
     ].join(':');
     if (key === lastKey) return;
     lastKey = key;
