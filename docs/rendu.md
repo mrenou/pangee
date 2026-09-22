@@ -96,6 +96,20 @@ niveau de la mer. Elle est noyée de toute façon, et l'écart ne se voit pas à
 La règle vaut pour le shader **et** pour le semis des symboles, sans quoi des arbres flotteraient
 sur la mer. Elle vit donc en clair dans `src/render/waterSurface.ts`, testée, et le GLSL la recopie.
 
+### Distinguer les lacs de la mer
+
+Lacs et mer partageaient la même palette et le même trait de rive. Le monde en comptait deux mille
+et on n'en distinguait aucun : une eau intérieure prenait exactement la teinte d'une eau côtière.
+
+Les eaux douces ont donc leur propre rendu — plus clair, étalé sur quelques centaines de mètres de
+profondeur au lieu des grands fonds, avec un trait de rive plus léger et sans hachures
+bathymétriques, qui sont une convention marine.
+
+Un plan d'eau perché au-dessus du niveau marin est réputé doux. Les rares cuvettes fermées plus
+basses que la mer passent pour marines : l'écart ne se voit pas à cette échelle, et cela évite de
+transporter une couche de plus jusqu'au shader. La règle est dans
+`src/render/waterSurface.ts`, testée, et le GLSL la recopie.
+
 ### Redessiner quand les données changent
 
 PixiJS ne redessine que si la scène a changé. Remplacer une texture ou écrire un uniforme ne l'en

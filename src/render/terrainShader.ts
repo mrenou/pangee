@@ -155,6 +155,18 @@ vec3 seaColor(float t) {
   return mix(c, deep, smoothstep(0.35, 1.0, t));
 }
 
+/**
+ * Les eaux douces sont plus claires et plus franches que la mer.
+ *
+ * Sans cela, un lac prend exactement la teinte d'une eau côtière et se perd
+ * dans la carte : on sait qu'il y en a deux mille, on n'en distingue aucun.
+ */
+vec3 lakeColor(float t) {
+  vec3 shallow = vec3(0.678, 0.769, 0.788);
+  vec3 deep    = vec3(0.475, 0.604, 0.659);
+  return mix(shallow, deep, smoothstep(0.0, 1.0, t));
+}
+
 void main() {
   // Écran → monde. vScreenUv.y descend, la latitude monte.
   vec2 lonLat = vec2(
@@ -221,6 +233,10 @@ void main() {
   float lakeSurfaceM = uHasWater > 0.5 ? waterLevel : -1e9;
   float surfaceM = max(uSeaLevelM, lakeSurfaceM);
   bool submerged = surfaceM > h;
+  // Une eau perchée au-dessus du niveau marin est douce. Les rares cuvettes
+  // fermées plus basses que la mer passent pour marines : l'écart ne se voit
+  // pas, et cela évite de transporter une couche de plus jusqu'au shader.
+  bool isLake = submerged && lakeSurfaceM > uSeaLevelM + 1.0;
   float depthOrAlt = h - surfaceM;
 
   // Ombrage de relief : gradient en différences finies, sur un pas d'un texel
@@ -248,11 +264,15 @@ void main() {
     float shade = clamp(0.5 + (hx * 0.5 + hy * 0.5) / 900.0, 0.15, 1.0);
     color *= mix(0.78, 1.14, shade);
   } else {
-    // Un lac de montagne est peu profond : on étale la palette sur sa propre
-    // profondeur, pas sur celle des grands fonds.
     float depth = surfaceM - h;
-    float t = clamp(depth / uMaxDepthM, 0.0, 1.0);
-    color = seaColor(t);
+
+    if (isLake) {
+      // Un lac est peu profond : on étale sa palette sur quelques centaines de
+      // mètres, et non sur celle des grands fonds, sinon il ressort uniforme.
+      color = lakeColor(clamp(depth / 400.0, 0.0, 1.0));
+    } else {
+      color = seaColor(clamp(depth / uMaxDepthM, 0.0, 1.0));
+    }
   }
 
   // Trait de côte, et hachures parallèles au large.
@@ -270,7 +290,7 @@ void main() {
   float maxN = max(max(hE, hW), max(hN, hS));
   float coast = step(minN, 0.0) * step(0.0, maxN);
 
-  if (uStyle > 0.5 && submerged) {
+  if (uStyle > 0.5 && submerged && !isLake) {
     // Hachures par paliers de profondeur, comme les bathymétries gravées : une
     // isoligne tous les cinquante mètres. L'espacement à l'écran suit alors la
     // pente du fond, serré sur un talus, large sur un plateau — et il ne
@@ -291,8 +311,10 @@ void main() {
   }
 
   // Le trait de côte passe par-dessus les hachures : c'est lui qui porte la
-  // lecture de la carte, il ne doit jamais se noyer dans la bathymétrie.
-  color = mix(color, vec3(0.149, 0.114, 0.082), coast * 0.92);
+  // lecture de la carte, il ne doit jamais se noyer dans la bathymétrie. Une
+  // rive de lac se trace plus légèrement qu'un littoral, comme à la plume.
+  vec3 shoreInk = isLake ? vec3(0.298, 0.302, 0.278) : vec3(0.149, 0.114, 0.082);
+  color = mix(color, shoreInk, coast * (isLake ? 0.6 : 0.92));
 
   // Les cours d'eau ne sont plus tracés ici : un test par pixel donnait des
   // marches d'escalier d'une cellule. Ils sont dessinés en polylignes à
