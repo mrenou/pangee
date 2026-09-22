@@ -99,6 +99,10 @@ Cible : `50 + placeDensity * 100` lieux, arrondie, avec tolérance si les critè
 
 ## Routes
 
+> **État** : le placement des lieux et le générateur de noms sont en place ; le réseau routier
+> décrit ci-dessous ne l'est pas encore. Les routes arriveront avec les outils d'édition, qui
+> partagent le même besoin de scission aux coupures.
+
 Pour chaque paire de lieux dont la distance est inférieure à un seuil (fonction de la somme des `size`), un A* est lancé sur la grille :
 
 ```
