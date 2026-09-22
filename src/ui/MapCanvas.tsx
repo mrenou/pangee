@@ -5,6 +5,20 @@ import { RAIN_PER_CELL, useHydroStore } from '@/store/hydroStore';
 import { attachCameraControls } from '@/render/cameraControls';
 import { createMapRenderer, type MapRenderer } from '@/render/mapRenderer';
 
+/** Transmet au moteur les réglages qui gouvernent l'apparence de la carte. */
+function pushView(renderer: MapRenderer): void {
+  const { ringConfig, tDays, seaLevelM, showFaults, bookStyle } = useWorldStore.getState();
+  renderer.setView({
+    ringConfig,
+    tDays,
+    seaLevelM,
+    showFaults,
+    bookStyle,
+    maxAltitudeM: MAX_ALTITUDE,
+    maxDepthM: MAX_DEPTH,
+  });
+}
+
 /**
  * Hôte React du canvas Pixi. Monte le moteur de rendu, lui pousse l'état du
  * store, et rien d'autre. Voir docs/rendu.md.
@@ -45,6 +59,14 @@ export function MapCanvas() {
       observer.observe(host);
       syncSize();
 
+      // Le moteur naît après le premier rendu de React : les effets qui lui
+      // poussent l'état ont donc déjà tourné dans le vide, et rien ne les
+      // rejouera si leurs dépendances ne changent pas. On lui transmet l'état
+      // courant une fois, ici.
+      pushView(created);
+      created.setPlaces(useWorldStore.getState().places);
+      created.setViewport(useViewportStore.getState().viewport);
+
       // Premier monde : la carte ne doit jamais s'ouvrir sur du vide.
       void useWorldStore.getState().regenerate();
     });
@@ -65,6 +87,11 @@ export function MapCanvas() {
     if (height) rendererRef.current?.setHeight(rasterSize, height);
   }, [heightVersion]);
 
+  const places = useWorldStore((s) => s.places);
+  useEffect(() => {
+    rendererRef.current?.setPlaces(places);
+  }, [places]);
+
   const viewport = useViewportStore((s) => s.viewport);
   useEffect(() => {
     rendererRef.current?.setViewport(viewport);
@@ -76,15 +103,8 @@ export function MapCanvas() {
   const showFaults = useWorldStore((s) => s.showFaults);
   const bookStyle = useWorldStore((s) => s.bookStyle);
   useEffect(() => {
-    rendererRef.current?.setView({
-      ringConfig,
-      tDays,
-      seaLevelM,
-      showFaults,
-      bookStyle,
-      maxAltitudeM: MAX_ALTITUDE,
-      maxDepthM: MAX_DEPTH,
-    });
+    const renderer = rendererRef.current;
+    if (renderer) pushView(renderer);
   }, [ringConfig, tDays, seaLevelM, showFaults, bookStyle]);
 
   // L'eau est recalculée après coup : le terrain a déjà glissé, seul un

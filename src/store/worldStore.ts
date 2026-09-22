@@ -1,7 +1,13 @@
 import { create } from 'zustand';
-import { DEFAULT_TERRAIN_PARAMS, MAX_ALTITUDE_M, MAX_DEPTH_M, type TerrainParams } from '@/gen';
+import {
+  DEFAULT_PLACE_DENSITY,
+  DEFAULT_TERRAIN_PARAMS,
+  MAX_ALTITUDE_M,
+  MAX_DEPTH_M,
+  type TerrainParams,
+} from '@/gen';
 import { DEFAULT_RING_CONFIG, type RingConfig, type RingId } from '@/model/ring';
-import { DEFAULT_SETTINGS, RASTER_2K, type RasterSize } from '@/model/world';
+import { DEFAULT_SETTINGS, RASTER_2K, type Place, type RasterSize } from '@/model/world';
 import { generateWorldInWorker } from '@/workers/genClient';
 import { useHydroStore } from '@/store/hydroStore';
 
@@ -16,6 +22,8 @@ interface WorldState {
   bookStyle: boolean;
 
   terrain: TerrainParams;
+  placeDensity: number;
+  places: readonly Place[];
   rasterSize: RasterSize;
   height: Float32Array | undefined;
   /** Incrémenté à chaque nouveau relief, pour que le rendu sache re-téléverser. */
@@ -31,6 +39,7 @@ interface WorldState {
   setShowFaults: (showFaults: boolean) => void;
   setBookStyle: (bookStyle: boolean) => void;
   setTerrain: (patch: Partial<TerrainParams>) => void;
+  setPlaceDensity: (placeDensity: number) => void;
   regenerate: () => Promise<void>;
 }
 
@@ -51,6 +60,8 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   bookStyle: true,
 
   terrain: DEFAULT_TERRAIN_PARAMS,
+  placeDensity: DEFAULT_PLACE_DENSITY,
+  places: [],
   rasterSize: RASTER_2K,
   height: undefined,
   heightVersion: 0,
@@ -88,17 +99,26 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   setShowFaults: (showFaults) => set({ showFaults }),
   setBookStyle: (bookStyle) => set({ bookStyle }),
   setTerrain: (patch) => set((s) => ({ terrain: { ...s.terrain, ...patch } })),
+  setPlaceDensity: (placeDensity) => set({ placeDensity }),
 
   regenerate: async () => {
-    const { rasterSize, terrain } = get();
+    const { rasterSize, terrain, placeDensity, seaLevelM, radiusKm, ringConfig } = get();
     set({ status: 'running', error: undefined });
     try {
-      const result = await generateWorldInWorker({ size: rasterSize, terrain });
+      const result = await generateWorldInWorker({
+        size: rasterSize,
+        terrain,
+        placeDensity,
+        seaLevelM,
+        radiusKm,
+        ringConfig,
+      });
       // Le worker hydrologique garde sa propre copie du relief : changer de
       // date ne lui renverra plus que quelques nombres.
       await useHydroStore.getState().setHeight(result.size, result.height);
       set((s) => ({
         height: result.height,
+        places: result.places,
         rasterSize: result.size,
         heightVersion: s.heightVersion + 1,
         status: 'idle',
