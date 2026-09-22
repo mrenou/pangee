@@ -11,11 +11,14 @@ import { normalizeViewport, visibleSpanDeg, type Viewport } from '@/model/viewpo
 import type { RingConfig } from '@/model/ring';
 import type { RasterSize } from '@/model/world';
 import type { RiverNetwork } from '@/hydro/rivers';
-import type { Place } from '@/model/world';
+import type { Place, Road } from '@/model/world';
+import type { Point } from '@/edit/roads';
 import { TERRAIN_FRAGMENT, TERRAIN_VERTEX } from '@/render/terrainShader';
 import { biomePaletteArray } from '@/render/palette';
 import { createLabelLayer } from '@/render/labelLayer';
 import { createRiverLayer } from '@/render/riverLayer';
+import { createRoadLayer } from '@/render/roadLayer';
+import { uploadRegion, type SubImageRegion } from '@/render/textureUpdate';
 import { createSymbolLayer, type TerrainSample } from '@/render/symbolLayer';
 import {
   createByteTexture,
@@ -46,6 +49,17 @@ export interface MapRenderer {
   setTerrainSample: (sample: TerrainSample) => void;
   /** Lieux à nommer, en référentiel local. */
   setPlaces: (places: readonly Place[]) => void;
+  /** Routes, en référentiel local. */
+  setRoads: (roads: readonly Road[]) => void;
+  /** Tracé en cours, pas encore validé. */
+  setDraftRoad: (points: readonly Point[]) => void;
+  /**
+   * Renvoie au GPU la zone du relief modifiée par un coup de pinceau.
+   * `undefined` réuploade toute la couche.
+   */
+  refreshHeight: (region?: SubImageRegion) => void;
+  /** Réuploade la couche d'override de biome. */
+  refreshBiomeOverride: (data: Uint8Array) => void;
   setWater: (
     size: RasterSize,
     waterLevel: Float32Array,
@@ -127,6 +141,9 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
   const riverLayer = createRiverLayer();
   app.stage.addChild(riverLayer.container);
 
+  const roadLayer = createRoadLayer();
+  app.stage.addChild(roadLayer.container);
+
   // Les lieux passent au-dessus de tout : ce sont eux qu'on lit en premier.
   const labelLayer = createLabelLayer();
   app.stage.addChild(labelLayer.container);
@@ -154,6 +171,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     uniforms.update();
     symbolLayer.setViewport(v);
     riverLayer.setViewport(v);
+    roadLayer.setViewport(v);
     labelLayer.setViewport(v);
   };
 
@@ -173,6 +191,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     uniforms.uniforms.uStyle = view.bookStyle ? 1 : 0;
     symbolLayer.setVisible(view.bookStyle);
     labelLayer.setTime(view.ringConfig, view.tDays);
+    roadLayer.setTime(view.ringConfig, view.tDays);
     uniforms.update();
   };
 
@@ -221,10 +240,27 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     setWater,
     setTerrainSample: (next) => symbolLayer.setTerrain(next),
     setPlaces: (next) => labelLayer.setPlaces(next),
+    setRoads: (next) => roadLayer.setRoads(next),
+    setDraftRoad: (next) => roadLayer.setDraft(next),
+
+    refreshHeight: (region) => {
+      const data = heightTexture.source.resource as Float32Array;
+      const partial =
+        region !== undefined &&
+        uploadRegion(app.renderer, heightTexture.texture.source, data, heightTexture.size, region);
+      if (!partial) heightTexture.source.update();
+    },
+
+    refreshBiomeOverride: (data) => {
+      // L'override n'est pas encore une texture à part : il est relu par le
+      // worker au prochain calcul de climat. Voir docs/rendu.md.
+      void data;
+    },
     screenSize,
     destroy: () => {
       app.renderer.off('resize', resizeMesh);
       riverLayer.destroy();
+      roadLayer.destroy();
       symbolLayer.destroy();
       labelLayer.destroy();
       heightTexture.destroy();
