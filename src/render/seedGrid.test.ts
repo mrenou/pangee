@@ -3,6 +3,7 @@ import { DEFAULT_RING_CONFIG, type RingConfig } from '@/model/ring';
 import { ringOffsetDeg } from '@/model/time';
 import {
   FINE_STEP_DEG,
+  keepFraction,
   appearanceLevel,
   hashCell,
   seedPoint,
@@ -181,5 +182,51 @@ describe('suivi des anneaux', () => {
         6,
       );
     }
+  });
+});
+
+describe('éclaircie du semis', () => {
+  /** Espacement moyen obtenu à l'écran, en pixels, après éclaircie. */
+  function spacingPx(pixelsPerDegree: number): number {
+    const stride = strideFor(pixelsPerDegree, SPACING_PX);
+    const raw = stride * FINE_STEP_DEG * pixelsPerDegree;
+    // Garder une fraction f des points espace les survivants de 1/√f.
+    return raw / Math.sqrt(keepFraction(stride, pixelsPerDegree, SPACING_PX));
+  }
+
+  it('tient l espacement visé à tous les zooms', () => {
+    // Sans elle, le pas dyadique laissait la densité doubler entre deux
+    // paliers : la carte se couvrait de montagnes à mesure qu'on zoomait.
+    for (const ppd of [5, 8, 13, 21, 34, 55, 89, 144, 233, 377]) {
+      expect(spacingPx(ppd)).toBeCloseTo(SPACING_PX, 6);
+    }
+  });
+
+  it('ne retient jamais plus que tout', () => {
+    for (const ppd of [0.5, 1, 3, 400, 1000]) {
+      const f = keepFraction(strideFor(ppd, SPACING_PX), ppd, SPACING_PX);
+      expect(f).toBeGreaterThan(0);
+      expect(f).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('retient un point de plus en plus souvent quand on zoome dans un palier', () => {
+    const stride = 8;
+    expect(keepFraction(stride, 10, SPACING_PX)).toBeLessThan(keepFraction(stride, 20, SPACING_PX));
+  });
+
+  it('garde les points déjà retenus quand la densité monte', () => {
+    // Le tirage est stable : un point visible de loin ne disparaît pas en
+    // zoomant, sans quoi la carte clignoterait.
+    const kept = (limit: number): number[] => {
+      const out: number[] = [];
+      for (let i = 0; i < 400; i += 1) {
+        if (seedPoint(i, 32).r4 < limit) out.push(i);
+      }
+      return out;
+    };
+    const sparse = kept(0.3);
+    const dense = new Set(kept(0.7));
+    for (const i of sparse) expect(dense.has(i)).toBe(true);
   });
 });

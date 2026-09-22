@@ -83,10 +83,11 @@ import { ringOffsetDeg } from '@/model/time';
 export interface SeedPoint {
   readonly lon: number;
   readonly lat: number;
-  /** Trois tirages stables, pour le type, la taille et la sélection. */
+  /** Tirages stables : taille, orientation, sélection par terrain, éclaircie. */
   readonly r1: number;
   readonly r2: number;
   readonly r3: number;
+  readonly r4: number;
 }
 
 /**
@@ -99,6 +100,7 @@ export function seedPoint(i: number, j: number): SeedPoint {
   const r1 = hashCell(i, j);
   const r2 = hashCell(i + 9871, j - 1237);
   const r3 = hashCell(i - 421, j + 7717);
+  const r4 = hashCell(i + 3301, j + 5077);
 
   // Le décalage suit l'espacement auquel le point apparaît : large pour un
   // sommet visible de loin, serré pour un détail qui ne sort qu'au zoom.
@@ -112,7 +114,24 @@ export function seedPoint(i: number, j: number): SeedPoint {
     r1,
     r2,
     r3,
+    r4,
   };
+}
+
+/**
+ * Part des points à retenir pour tenir l'espacement visé.
+ *
+ * Le pas de parcours progresse par puissances de deux : entre deux paliers, la
+ * grille est jusqu'à deux fois trop serrée, et la carte se couvre de montagnes
+ * à mesure qu'on zoome. On en écarte donc une partie, choisie par un tirage
+ * stable — un point retenu à faible densité le reste quand la densité monte,
+ * de sorte que rien ne clignote.
+ */
+export function keepFraction(stride: number, pixelsPerDegree: number, spacingPx: number): number {
+  const actual = stride * FINE_STEP_DEG * pixelsPerDegree;
+  if (actual <= 0) return 1;
+  const ratio = actual / spacingPx;
+  return Math.min(1, ratio * ratio);
 }
 
 /**
