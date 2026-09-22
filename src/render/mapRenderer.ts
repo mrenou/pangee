@@ -225,6 +225,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     symbolLayer.setVisible(view.bookStyle);
     labelLayer.setTime(view.ringConfig, view.tDays);
     roadLayer.setTime(view.ringConfig, view.tDays);
+    symbolLayer.setTime(view.ringConfig, view.tDays);
     uniforms.update();
   };
 

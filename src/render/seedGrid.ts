@@ -76,6 +76,10 @@ export function hashCell(i: number, j: number): number {
   return (h >>> 0) / 4294967296;
 }
 
+import { wrapLon } from '@/model/coords';
+import { ringOf, type RingConfig } from '@/model/ring';
+import { ringOffsetDeg } from '@/model/time';
+
 export interface SeedPoint {
   readonly lon: number;
   readonly lat: number;
@@ -109,4 +113,19 @@ export function seedPoint(i: number, j: number): SeedPoint {
     r2,
     r3,
   };
+}
+
+/**
+ * Position affichée d'un point de semis, à une date donnée.
+ *
+ * La grille est en référentiel local : un symbole reste accroché à son morceau
+ * de terrain et glisse avec son anneau. L'ancrer au référentiel monde laisserait
+ * le relief défiler sous un semis immobile, et les montagnes changeraient de
+ * forme sur place à mesure que le continent passe.
+ * Voir docs/modele-monde.md.
+ */
+export function seedPointInWorld(i: number, j: number, cfg: RingConfig, tDays: number): SeedPoint {
+  const point = seedPoint(i, j);
+  const offset = ringOffsetDeg(cfg.rings[ringOf(point.lat, cfg)], tDays, cfg.t0);
+  return { ...point, lon: wrapLon(point.lon + offset) };
 }

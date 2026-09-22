@@ -262,3 +262,8 @@ test('relever la mer noie les terres basses', async ({ page }) => {
   // Le calage d'une capture dans cette fenêtre n'est pas reproductible : la
   // capture dure plus longtemps que le calcul qu'elle voudrait devancer.
 });
+
+// Le suivi des anneaux par les symboles n'est pas vérifiable ici : une bande
+// translatée ne retombe pas sur l'originale, le grain du parchemin et les
+// hachures étant fonction de la longitude. La propriété est vérifiée dans
+// src/render/seedGrid.test.ts, sur la conversion elle-même.

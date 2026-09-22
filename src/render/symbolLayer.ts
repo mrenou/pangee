@@ -10,9 +10,11 @@
 import { Container, Graphics } from 'pixi.js';
 import { Biome } from '@/climate';
 import { columnOfLon, idx, rowOfLat } from '@/model/coords';
+import { ringOf, type RingConfig } from '@/model/ring';
+import { ringOffsetDeg } from '@/model/time';
 import type { Viewport } from '@/model/viewport';
 import type { RasterSize } from '@/model/world';
-import { FINE_STEP_DEG, seedPoint, strideFor } from '@/render/seedGrid';
+import { FINE_STEP_DEG, seedPoint, seedPointInWorld, strideFor } from '@/render/seedGrid';
 import { isSubmerged } from '@/render/waterSurface';
 import {
   drawConifer,
@@ -49,6 +51,8 @@ export interface TerrainSample {
 export interface SymbolLayer {
   readonly container: Container;
   setTerrain: (sample: TerrainSample | undefined) => void;
+  /** Date et anneaux : le semis est ancré au monde d'avant le Cataclysme. */
+  setTime: (ringConfig: RingConfig, tDays: number) => void;
   setViewport: (viewport: Viewport) => void;
   setVisible: (visible: boolean) => void;
   destroy: () => void;
@@ -62,6 +66,8 @@ export function createSymbolLayer(): SymbolLayer {
   let sample: TerrainSample | undefined;
   let lastKey = '';
   let lastViewport: Viewport | undefined;
+  let ringConfig: RingConfig | undefined;
+  let tDays = 0;
 
   const draw = (viewport: Viewport): void => {
     graphics.clear();
@@ -78,17 +84,29 @@ export function createSymbolLayer(): SymbolLayer {
     const stride = strideFor(pixelsPerDegree, SPACING_PX);
     const align = (value: number): number => Math.floor(value / FINE_STEP_DEG / stride) * stride;
 
-    const fromI = align(centerLonWorld - halfLon);
-    const toI = align(centerLonWorld + halfLon) + stride;
     const fromJ = align(centerLat - halfLat);
     const toJ = align(centerLat + halfLat) + stride;
 
     const { size, heightWorld, biome, waterLevel, seaLevelM } = sample;
+    const cfg = ringConfig;
     let drawn = 0;
 
     for (let j = fromJ; j <= toJ && drawn < MAX_SYMBOLS; j += stride) {
+      // La grille est en référentiel local : un symbole reste accroché à son
+      // morceau de terrain et glisse avec son anneau. L'ancrer au référentiel
+      // monde laissait le relief défiler sous un semis immobile, et les
+      // montagnes changeaient de forme à mesure que le continent passait.
+      const rowLat = (j + 0.5) * FINE_STEP_DEG;
+      const offsetDeg = cfg ? ringOffsetDeg(cfg.rings[ringOf(rowLat, cfg)], tDays, cfg.t0) : 0;
+
+      const fromI = align(centerLonWorld - halfLon - offsetDeg);
+      const toI = align(centerLonWorld + halfLon - offsetDeg) + stride;
+
       for (let i = fromI; i <= toI && drawn < MAX_SYMBOLS; i += stride) {
-        const { lon, lat, r1, r2, r3 } = seedPoint(i, j);
+        // Position affichée : le point vit en local et suit son anneau. Le
+        // terrain est lu au même endroit, les couches dérivées étant déjà en
+        // référentiel monde.
+        const { lon, lat, r1, r2, r3 } = cfg ? seedPointInWorld(i, j, cfg, tDays) : seedPoint(i, j);
         if (lat > 89 || lat < -89) continue;
 
         const cell = idx(columnOfLon(lon, size.width), rowOfLat(lat, size.height), size.width);
@@ -157,6 +175,7 @@ export function createSymbolLayer(): SymbolLayer {
     const window = FINE_STEP_DEG * stride * 4;
     const key = [
       stride,
+      tDays,
       pixelsPerDegree.toFixed(3),
       Math.round(centerLonWorld / window),
       Math.round(centerLat / window),
@@ -168,6 +187,12 @@ export function createSymbolLayer(): SymbolLayer {
 
   return {
     container,
+    setTime: (config, days) => {
+      ringConfig = config;
+      tDays = days;
+      lastKey = '';
+      if (lastViewport) draw(lastViewport);
+    },
     setTerrain: (next) => {
       sample = next;
       lastKey = '';
