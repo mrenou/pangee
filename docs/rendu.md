@@ -96,6 +96,27 @@ niveau de la mer. Elle est noyée de toute façon, et l'écart ne se voit pas à
 La règle vaut pour le shader **et** pour le semis des symboles, sans quoi des arbres flotteraient
 sur la mer. Elle vit donc en clair dans `src/render/waterSurface.ts`, testée, et le GLSL la recopie.
 
+### Un semis qui ne bouge pas
+
+Les symboles étaient semés sur une grille dont le pas se déduisait du zoom. Chaque cran de molette
+changeait donc la grille, et avec elle la position de **toutes** les montagnes : la carte semblait
+se régénérer sous les yeux, ce qui est insupportable à l'usage.
+
+La grille est désormais fixe, ancrée au monde, avec un pas très fin. C'est le **pas de parcours**
+qui s'ajuste au zoom, et toujours par puissances de deux. En zoomant il est divisé par deux : les
+points déjà affichés le restent — un multiple de huit est un multiple de quatre — et de nouveaux
+s'intercalent entre eux. Un symbole n'est jamais déplacé, il apparaît ou disparaît.
+
+Le coût ne dépend pas de la finesse de la grille : le pas compense, de sorte que le nombre de
+points visités reste proportionnel à la surface de l'écran.
+
+Deux détails qui comptent. Le pas de la grille fine doit rester sous l'espacement visé au zoom
+maximal, sans quoi les symboles s'écartent au lieu de se resserrer. Et le décalage aléatoire d'un
+point suit l'espacement auquel il **apparaît**, non le zoom courant : large pour un sommet visible
+de loin, serré pour un détail qui ne sort qu'au zoom — sinon il sauterait d'un niveau à l'autre.
+Il occupe presque toute sa case, faute de quoi l'œil retrouve les rangées de la grille dans les
+forêts.
+
 ### Distinguer les lacs de la mer
 
 Lacs et mer partageaient la même palette et le même trait de rive. Le monde en comptait deux mille
