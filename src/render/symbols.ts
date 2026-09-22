@@ -9,6 +9,49 @@
 
 import type { Graphics } from 'pixi.js';
 
+/**
+ * Les figures sont tracées en degrés, dans un conteneur mis à l'échelle du
+ * zoom. PixiJS décide de la finesse d'une courbe d'après ses coordonnées
+ * locales — ici minuscules — et l'approche par deux ou trois segments droits :
+ * les collines sortaient en crochets anguleux. On échantillonne donc les
+ * courbes à la main, avec un nombre de points fixe et suffisant.
+ */
+const ARC_STEPS = 14;
+
+/** Trace une courbe de Bézier cubique échantillonnée. */
+function cubic(
+  g: Graphics,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  x3: number,
+  y3: number,
+): void {
+  g.moveTo(x0, y0);
+  for (let k = 1; k <= ARC_STEPS; k += 1) {
+    const t = k / ARC_STEPS;
+    const u = 1 - t;
+    const a = u * u * u;
+    const b = 3 * u * u * t;
+    const c = 3 * u * t * t;
+    const d = t * t * t;
+    g.lineTo(a * x0 + b * x1 + c * x2 + d * x3, a * y0 + b * y1 + c * y2 + d * y3);
+  }
+}
+
+/** Trace un disque échantillonné, pour la même raison. */
+function disc(g: Graphics, cx: number, cy: number, r: number): void {
+  g.moveTo(cx + r, cy);
+  for (let k = 1; k <= ARC_STEPS; k += 1) {
+    const angle = (k / ARC_STEPS) * Math.PI * 2;
+    g.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+  }
+  g.closePath();
+}
+
 export const INK = 0x3a2e22;
 export const INK_LIGHT = 0x6b5a45;
 export const FOLIAGE = 0x4e5c3e;
@@ -45,9 +88,8 @@ export function drawMountain(g: Graphics, x: number, y: number, size: number, le
 export function drawHill(g: Graphics, x: number, y: number, size: number): void {
   const w = size * 0.9;
   const h = size * 0.5;
-  g.moveTo(x - w * 0.5, y)
-    .bezierCurveTo(x - w * 0.28, y + h * 1.5, x + w * 0.28, y + h * 1.5, x + w * 0.5, y)
-    .stroke({ width: size * 0.09, color: INK, alpha: 0.7, cap: 'round' });
+  cubic(g, x - w * 0.5, y, x - w * 0.28, y + h * 1.5, x + w * 0.28, y + h * 1.5, x + w * 0.5, y);
+  g.stroke({ width: size * 0.09, color: INK, alpha: 0.7, cap: 'round' });
 }
 
 /** Arbre : un tronc court et un houppier en trois lobes. */
@@ -58,10 +100,10 @@ export function drawTree(g: Graphics, x: number, y: number, size: number): void 
     .stroke({ width: size * 0.1, color: INK, alpha: 0.8, cap: 'round' });
 
   const r = size * 0.3;
-  g.circle(x, y + trunk + r * 0.7, r)
-    .circle(x - r * 0.75, y + trunk + r * 0.15, r * 0.7)
-    .circle(x + r * 0.75, y + trunk + r * 0.15, r * 0.7)
-    .fill({ color: FOLIAGE, alpha: 0.5 });
+  disc(g, x, y + trunk + r * 0.7, r);
+  disc(g, x - r * 0.75, y + trunk + r * 0.15, r * 0.7);
+  disc(g, x + r * 0.75, y + trunk + r * 0.15, r * 0.7);
+  g.fill({ color: FOLIAGE, alpha: 0.5 });
 }
 
 /** Conifère : une flèche, pour distinguer la taïga de la forêt tempérée. */
@@ -82,12 +124,21 @@ export function drawConifer(g: Graphics, x: number, y: number, size: number): vo
   }
 }
 
-/** Dune : deux croissants, pour le désert. */
+/** Dune : un croissant couché, pour le désert. */
 export function drawDune(g: Graphics, x: number, y: number, size: number): void {
   const w = size * 0.75;
-  g.moveTo(x - w * 0.5, y)
-    .bezierCurveTo(x - w * 0.2, y + size * 0.45, x + w * 0.15, y + size * 0.3, x + w * 0.5, y)
-    .stroke({ width: size * 0.08, color: INK_LIGHT, alpha: 0.6, cap: 'round' });
+  cubic(
+    g,
+    x - w * 0.5,
+    y,
+    x - w * 0.2,
+    y + size * 0.45,
+    x + w * 0.15,
+    y + size * 0.3,
+    x + w * 0.5,
+    y,
+  );
+  g.stroke({ width: size * 0.08, color: INK_LIGHT, alpha: 0.6, cap: 'round' });
 }
 
 /** Marais : des herbes sur deux traits d'eau. */
