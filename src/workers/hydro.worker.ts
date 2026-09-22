@@ -33,6 +33,8 @@ export interface HydroReply {
   readonly riverPoints: Float32Array;
   readonly riverStarts: Int32Array;
   readonly riverThreshold: number;
+  /** Date à laquelle ces couches ont été calculées. */
+  readonly tDays: number;
   readonly lakeCount: number;
   readonly elapsedMs: number;
 }
@@ -101,6 +103,7 @@ const api = {
       riverPoints: rivers.points,
       riverStarts: rivers.starts,
       riverThreshold: threshold,
+      tDays: request.tDays,
       lakeCount: state.lakes.length,
       elapsedMs: performance.now() - started,
     };
