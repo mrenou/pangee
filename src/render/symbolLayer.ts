@@ -14,17 +14,16 @@ import { ringOf, type RingConfig } from '@/model/ring';
 import { ringOffsetDeg } from '@/model/time';
 import type { Viewport } from '@/model/viewport';
 import type { RasterSize } from '@/model/world';
-import { FINE_STEP_DEG, seedPoint, seedPointInWorld, strideFor } from '@/render/seedGrid';
+import {
+  FINE_STEP_DEG,
+  keepFraction,
+  seedPoint,
+  seedPointInWorld,
+  strideFor,
+} from '@/render/seedGrid';
 import { isSubmerged } from '@/render/waterSurface';
 import { worldLagDeg } from '@/render/worldLag';
-import {
-  drawConifer,
-  drawDune,
-  drawHill,
-  drawMarsh,
-  drawMountain,
-  drawTree,
-} from '@/render/symbols';
+import { SYMBOL_PASSES, closePass, emitSymbol, type PlacedSymbol } from '@/render/symbols';
 
 /** Espacement visé entre deux symboles, en pixels écran. */
 const SPACING_PX = 26;
@@ -73,6 +72,9 @@ export function createSymbolLayer(): SymbolLayer {
   let tDays = 0;
 
   const draw = (viewport: Viewport): void => {
+    // Le cache doit être levé avant de retoucher les tracés, sinon on peindrait
+    // sous une image figée.
+    container.cacheAsTexture(false);
     graphics.clear();
     if (!sample) return;
 
@@ -85,6 +87,9 @@ export function createSymbolLayer(): SymbolLayer {
     // Le pas de parcours s'ajuste au zoom, la grille reste celle du monde : un
     // symbole ne bouge donc jamais, il apparaît ou disparaît.
     const stride = strideFor(pixelsPerDegree, SPACING_PX);
+    // Entre deux paliers, la grille est jusqu'à deux fois trop serrée : on en
+    // écarte une part pour garder un espacement constant à l'écran.
+    const keep = keepFraction(stride, pixelsPerDegree, SPACING_PX);
     const align = (value: number): number => Math.floor(value / FINE_STEP_DEG / stride) * stride;
 
     const fromJ = align(centerLat - halfLat);
@@ -93,6 +98,12 @@ export function createSymbolLayer(): SymbolLayer {
     const { size, heightWorld, biome, waterLevel, seaLevelM } = sample;
     const cfg = ringConfig;
     let drawn = 0;
+
+    // Les symboles sont d'abord recensés, puis tracés par passes de style :
+    // un seul trait pour tous les contours, un seul aplat pour tous les
+    // feuillages. Les terminer un par un ouvrait des milliers d'instructions
+    // de dessin par image.
+    const placed: PlacedSymbol[] = [];
 
     for (let j = fromJ; j <= toJ && drawn < MAX_SYMBOLS; j += stride) {
       // La grille est en référentiel local : un symbole reste accroché à son
@@ -115,7 +126,10 @@ export function createSymbolLayer(): SymbolLayer {
         // Position affichée : le point vit en local et suit son anneau. Le
         // terrain est lu au même endroit, les couches dérivées étant déjà en
         // référentiel monde.
-        const { lon, lat, r1, r2, r3 } = cfg ? seedPointInWorld(i, j, cfg, tDays) : seedPoint(i, j);
+        const { lon, lat, r1, r2, r3, r4 } = cfg
+          ? seedPointInWorld(i, j, cfg, tDays)
+          : seedPoint(i, j);
+        if (r4 >= keep) continue;
         if (lat > 89 || lat < -89) continue;
 
         const cell = idx(
@@ -142,13 +156,19 @@ export function createSymbolLayer(): SymbolLayer {
           if (r3 > 0.82) continue;
           // Les plus hauts sommets se dessinent plus grands.
           const relief = Math.min(1.6, 0.95 + (altitude - MOUNTAIN_M) / 3000);
-          drawMountain(graphics, lon, y, unit * relief, r2 > 0.5 ? 1 : -1);
+          placed.push({
+            kind: 'mountain',
+            x: lon,
+            y,
+            size: unit * relief,
+            lean: r2 > 0.5 ? 1 : -1,
+          });
         } else if (altitude > HILL_M) {
           if (r3 > 0.5) continue;
-          drawHill(graphics, lon, y, unit);
+          placed.push({ kind: 'hill', x: lon, y, size: unit, lean: 1 });
         } else if (b === Biome.Taiga) {
           if (r3 > 0.62) continue;
-          drawConifer(graphics, lon, y, unit * 0.9);
+          placed.push({ kind: 'conifer', x: lon, y, size: unit * 0.9, lean: 1 });
         } else if (
           b === Biome.TemperateForest ||
           b === Biome.TemperateRainforest ||
@@ -156,13 +176,13 @@ export function createSymbolLayer(): SymbolLayer {
           b === Biome.TropicalRainforest
         ) {
           if (r3 > 0.62) continue;
-          drawTree(graphics, lon, y, unit * 0.85);
+          placed.push({ kind: 'tree', x: lon, y, size: unit * 0.85, lean: 1 });
         } else if (b === Biome.Desert) {
           if (r3 > 0.38) continue;
-          drawDune(graphics, lon, y, unit * 0.8);
+          placed.push({ kind: 'dune', x: lon, y, size: unit * 0.8, lean: 1 });
         } else if (b === Biome.Marsh) {
           if (r3 > 0.55) continue;
-          drawMarsh(graphics, lon, y, unit * 0.8);
+          placed.push({ kind: 'marsh', x: lon, y, size: unit * 0.8, lean: 1 });
         } else {
           continue;
         }
@@ -170,6 +190,25 @@ export function createSymbolLayer(): SymbolLayer {
         drawn += 1;
       }
     }
+
+    for (const pass of SYMBOL_PASSES) {
+      let emitted = false;
+      for (const symbol of placed) {
+        emitSymbol(graphics, symbol, pass);
+        emitted = true;
+      }
+      if (emitted) closePass(graphics, pass, symbolDeg);
+    }
+
+    // Quelques milliers de traits à rastériser, à chaque image, pour un semis
+    // qui ne change qu'aux paliers de zoom : mesuré, cela coûtait près d'un
+    // quart de la fluidité même carte immobile. On le fige donc en une texture,
+    // reconstruite aux mêmes moments que le semis lui-même.
+    //
+    // La résolution doit être celle de l'écran, et non celle du repère local :
+    // les figures y mesurent des fractions de degré, et le cache les réduisait
+    // à quelques pixels flous avant de les réétirer.
+    if (placed.length > 0) container.cacheAsTexture({ resolution: pixelsPerDegree });
   };
 
   const setViewport = (viewport: Viewport): void => {
@@ -186,10 +225,16 @@ export function createSymbolLayer(): SymbolLayer {
     // dans la marge sans reconstruire quoi que ce soit.
     const stride = strideFor(pixelsPerDegree, SPACING_PX);
     const window = FINE_STEP_DEG * stride * 4;
+
+    // Le zoom n'entre dans la clé que par paliers grossiers. Reconstruire
+    // plusieurs milliers de tracés à chaque cran de molette rendait le zoom
+    // saccadé, alors que le semis, lui, ne change qu'au palier suivant. Entre
+    // deux, c'est la mise à l'échelle du conteneur qui fait le travail.
+    const zoomStep = Math.round(Math.log2(pixelsPerDegree) * 3);
     const key = [
       stride,
       tDays,
-      pixelsPerDegree.toFixed(3),
+      zoomStep,
       Math.round(centerLonWorld / window),
       Math.round(centerLat / window),
     ].join(':');

@@ -102,6 +102,25 @@ niveau de la mer. Elle est noyée de toute façon, et l'écart ne se voit pas à
 La règle vaut pour le shader **et** pour le semis des symboles, sans quoi des arbres flotteraient
 sur la mer. Elle vit donc en clair dans `src/render/waterSurface.ts`, testée, et le GLSL la recopie.
 
+### Ce que coûtent les symboles
+
+Deux à trois mille figures à rastériser à chaque image, pour un semis qui ne change qu'aux paliers
+de zoom. Mesuré : carte immobile, elles emportaient près d'un quart de la fluidité.
+
+La couche est donc **figée en une texture**, reconstruite aux mêmes moments que le semis lui-même.
+La résolution doit être celle de l'écran et non celle du repère local, où les figures mesurent des
+fractions de degré : sans cela le cache les réduit à quelques pixels flous avant de les réétirer —
+c'est visible du premier coup d'œil.
+
+Deux mesures ont guidé ce choix plutôt que l'intuition. Construire les tracés ne coûte que deux
+millisecondes : ce n'était pas là qu'il fallait chercher. Et regrouper les symboles par passes de
+style — un seul trait pour tous les contours au lieu d'un par figure — n'a rien changé de
+mesurable, même si cela reste plus sain ; c'est le cache qui a tout apporté.
+
+Le pas de parcours progressant par puissances de deux, la grille est jusqu'à deux fois trop serrée
+entre deux paliers. Une part des points est donc écartée par un tirage stable, ce qui maintient un
+espacement constant à l'écran : sans cela la carte se couvrait de montagnes à mesure qu'on zoomait.
+
 ### Des courbes tracées à la main
 
 Les symboles sont dessinés en degrés, dans un conteneur mis à l'échelle du zoom. PixiJS décide de
