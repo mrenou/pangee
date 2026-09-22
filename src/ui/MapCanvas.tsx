@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { MAX_ALTITUDE, MAX_DEPTH, useWorldStore } from '@/store/worldStore';
 import { useViewportStore } from '@/store/viewportStore';
 import { RAIN_PER_CELL, useHydroStore } from '@/store/hydroStore';
+import { attachEditControls } from '@/edit/editControls';
+import { editTarget, useEditStore } from '@/store/editStore';
 import { attachCameraControls } from '@/render/cameraControls';
 import { createMapRenderer, type MapRenderer } from '@/render/mapRenderer';
 
@@ -33,6 +35,7 @@ export function MapCanvas() {
 
     let renderer: MapRenderer | undefined;
     let controls: { destroy: () => void } | undefined;
+    let edits: { destroy: () => void } | undefined;
     let observer: ResizeObserver | undefined;
     let cancelled = false;
 
@@ -49,7 +52,31 @@ export function MapCanvas() {
         created.app.canvas,
         () => useViewportStore.getState().viewport,
         setViewport,
+        // Un outil actif prend la main sur le déplacement de la carte.
+        () => useEditStore.getState().tool === 'pan',
       );
+
+      edits = attachEditControls(created.app.canvas, {
+        getTool: () => useEditStore.getState().tool,
+        getViewport: () => useViewportStore.getState().viewport,
+        getRingConfig: () => useWorldStore.getState().ringConfig,
+        getTDays: () => useWorldStore.getState().tDays,
+        getTarget: editTarget,
+        getRelief: () => useEditStore.getState().relief,
+        getBiomeShape: () => useEditStore.getState().biomeShape,
+        getBiomeValue: () => useEditStore.getState().biomeValue,
+        onRasterTouched: (layer) => {
+          // Le terrain doit suivre le pinceau sans attendre : on réuploade au
+          // fil du geste, l'hydrologie ne sera recalculée qu'à la fin.
+          if (layer === 'height') created.refreshHeight();
+        },
+        onCommand: (command) => {
+          useEditStore.getState().record(command);
+          useWorldStore.getState().bumpHeightVersion();
+          useWorldStore.getState().scheduleAutosave();
+        },
+        onDraftRoad: (points) => created.setDraftRoad(points),
+      });
 
       const syncSize = (): void => {
         const { widthPx, heightPx } = created.screenSize();
@@ -65,15 +92,23 @@ export function MapCanvas() {
       // courant une fois, ici.
       pushView(created);
       created.setPlaces(useWorldStore.getState().places);
+      created.setRoads(useWorldStore.getState().roads);
       created.setViewport(useViewportStore.getState().viewport);
 
-      // Premier monde : la carte ne doit jamais s'ouvrir sur du vide.
-      void useWorldStore.getState().regenerate();
+      // On reprend le monde laissé par la session précédente ; à défaut, on en
+      // façonne un neuf. La carte ne doit jamais s'ouvrir sur du vide.
+      void useWorldStore
+        .getState()
+        .restoreFromStorage()
+        .then((restored) => {
+          if (!restored && !cancelled) void useWorldStore.getState().regenerate();
+        });
     });
 
     return () => {
       cancelled = true;
       observer?.disconnect();
+      edits?.destroy();
       controls?.destroy();
       renderer?.destroy();
       rendererRef.current = null;
@@ -91,6 +126,11 @@ export function MapCanvas() {
   useEffect(() => {
     rendererRef.current?.setPlaces(places);
   }, [places]);
+
+  const roads = useWorldStore((s) => s.roads);
+  useEffect(() => {
+    rendererRef.current?.setRoads(roads);
+  }, [roads]);
 
   const viewport = useViewportStore((s) => s.viewport);
   useEffect(() => {

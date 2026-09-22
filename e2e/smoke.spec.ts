@@ -121,3 +121,49 @@ test('le monde est peuplé de lieux nommés', async ({ page }) => {
   const after = Number(((await count.textContent()) ?? '').replace(/\D/g, ''));
   expect(after).toBeGreaterThan(before);
 });
+
+test('peindre le relief, annuler, et retrouver son monde après rechargement', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+
+  await page.goto('/');
+  await waitForStillMap(page);
+  const pristine = await canvasHash(page);
+
+  // Un trait de pinceau, en un seul geste.
+  await page.getByRole('button', { name: 'Relief' }).click();
+  const box = (await page.locator('canvas').boundingBox())!;
+  await page.mouse.move(box.x + 320, box.y + 300);
+  await page.mouse.down();
+  for (let i = 0; i < 10; i += 1) {
+    await page.mouse.move(box.x + 320 + i * 20, box.y + 300 + i * 4);
+  }
+  await page.mouse.up();
+  await page.waitForTimeout(1500);
+
+  const painted = await canvasHash(page);
+  expect(painted).not.toBe(pristine);
+
+  // Le geste entier ne fait qu'une entrée de pile : une seule annulation suffit
+  // à effacer tout le trait, et elle rend l'image d'origine au pixel près.
+  await page.getByRole('button', { name: /^Annuler/ }).click();
+  await page.waitForTimeout(1500);
+  expect(await canvasHash(page)).toBe(pristine);
+
+  await page.getByRole('button', { name: 'Rétablir' }).click();
+  await page.waitForTimeout(1500);
+  expect(await canvasHash(page)).toBe(painted);
+
+  // L'autosave est différé : on lui laisse le temps d'écrire avant de recharger.
+  await page.waitForTimeout(2500);
+  await page.reload();
+  await waitForStillMap(page);
+
+  // Le monde relu depuis IndexedDB porte toujours le trait. On ne compare pas
+  // au pixel près : le relief est enregistré en entiers 16 bits, dont la
+  // précision de 32 cm suffit largement pour des cellules de vingt kilomètres
+  // mais ne redonne pas exactement les mêmes flottants.
+  const restored = await canvasHash(page);
+  expect(restored).not.toBe(pristine);
+  expect(errors).toEqual([]);
+});
