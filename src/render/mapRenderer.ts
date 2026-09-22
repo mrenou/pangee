@@ -5,7 +5,7 @@
  * Voir docs/rendu.md.
  */
 
-import { Application, Mesh, MeshGeometry, Shader, UniformGroup } from 'pixi.js';
+import { Application, Geometry, Mesh, Shader, UniformGroup } from 'pixi.js';
 import { ringOffsetsDeg } from '@/model/time';
 import type { RingConfig as RingConfigType } from '@/model/ring';
 import { normalizeViewport, visibleSpanDeg, type Viewport } from '@/model/viewport';
@@ -130,10 +130,12 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
   });
 
   // Quad unitaire, étiré à la taille de l'écran par la matrice du mesh.
-  const geometry = new MeshGeometry({
-    positions: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]),
-    uvs: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]),
-    indices: new Uint32Array([0, 1, 2, 0, 2, 3]),
+  // Géométrie nue plutôt qu'un MeshGeometry : ce dernier déclare toujours un
+  // attribut d'UV, que ce shader n'utilise pas — il dérive tout de la position
+  // — et PixiJS s'en plaint à chaque démarrage.
+  const geometry = new Geometry({
+    attributes: { aPosition: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]) },
+    indexBuffer: new Uint32Array([0, 1, 2, 0, 2, 3]),
   });
 
   const mesh = new Mesh({ geometry, shader });
@@ -165,8 +167,19 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
    * uniforme ne l'en informe pas, et l'image restait figée jusqu'au prochain
    * mouvement de caméra. On le lui demande donc explicitement.
    */
+  /**
+   * Textures remplacées, en attente de libération.
+   *
+   * Détruire une source encore liée au shader laisse le groupe de liaison
+   * invalide : PixiJS le signale, et selon le pilote le terrain cesse d'être
+   * dessiné. On attend donc le rendu suivant, qui reconstruit la liaison sur
+   * les nouvelles sources, avant de libérer les anciennes.
+   */
+  const retired: HeightTexture[] = [];
+
   const invalidate = (): void => {
     app.renderer.render(app.stage);
+    while (retired.length > 0) retired.pop()?.destroy();
   };
 
   /** Dernière configuration reçue, pour dater les couches d'eau. */
@@ -216,17 +229,24 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
   };
 
   const setHeight = (size: RasterSize, height: Float32Array): void => {
-    const previous = heightTexture;
-    heightTexture = createHeightTexture(size, height);
-    shader.resources.uHeight = heightTexture.texture.source;
-    shader.resources.uHeightSampler = heightTexture.texture.source.style;
+    if (sameSize(heightTexture, size)) {
+      heightTexture.update(height);
+    } else {
+      retired.push(heightTexture);
+      heightTexture = createHeightTexture(size, height);
+      shader.resources.uHeight = heightTexture.texture.source;
+      shader.resources.uHeightSampler = heightTexture.texture.source.style;
+    }
+
     const rasterSize = uniforms.uniforms.uRasterSize as Float32Array;
     rasterSize[0] = size.width;
     rasterSize[1] = size.height;
     uniforms.update();
-    previous.destroy();
     invalidate();
   };
+
+  const sameSize = (texture: HeightTexture, size: RasterSize): boolean =>
+    texture.size.width === size.width && texture.size.height === size.height;
 
   const setWater = (
     size: RasterSize,
@@ -237,16 +257,27 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     riverThreshold: number,
     tDays: number,
   ): void => {
-    const previous = [waterTexture, flowTexture, biomeTexture];
-    waterTexture = createWorldTexture(size, waterLevel);
-    flowTexture = createWorldTexture(size, flowAcc);
-    biomeTexture = createByteTexture(size, biome);
-    shader.resources.uWaterLevel = waterTexture.texture.source;
-    shader.resources.uWaterLevelSampler = waterTexture.texture.source.style;
-    shader.resources.uFlowAcc = flowTexture.texture.source;
-    shader.resources.uFlowAccSampler = flowTexture.texture.source.style;
-    shader.resources.uBiome = biomeTexture.texture.source;
-    shader.resources.uBiomeSampler = biomeTexture.texture.source.style;
+    // Réécrire le contenu plutôt que remplacer la texture. Détruire une source
+    // encore liée au shader laisse le groupe de liaison invalide : PixiJS le
+    // signale, et selon le pilote le terrain cesse purement et simplement
+    // d'être dessiné. C'est aussi plus rapide, rien n'étant réalloué.
+    if (sameSize(waterTexture, size)) {
+      waterTexture.update(waterLevel);
+      flowTexture.update(flowAcc);
+      biomeTexture.update(biome);
+    } else {
+      retired.push(waterTexture, flowTexture, biomeTexture);
+      waterTexture = createWorldTexture(size, waterLevel);
+      flowTexture = createWorldTexture(size, flowAcc);
+      biomeTexture = createByteTexture(size, biome);
+      shader.resources.uWaterLevel = waterTexture.texture.source;
+      shader.resources.uWaterLevelSampler = waterTexture.texture.source.style;
+      shader.resources.uFlowAcc = flowTexture.texture.source;
+      shader.resources.uFlowAccSampler = flowTexture.texture.source.style;
+      shader.resources.uBiome = biomeTexture.texture.source;
+      shader.resources.uBiomeSampler = biomeTexture.texture.source.style;
+    }
+
     uniforms.uniforms.uHasWater = 1;
     uniforms.uniforms.uRiverThreshold = riverThreshold;
 
@@ -263,7 +294,6 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
 
     uniforms.update();
     riverLayer.setNetwork(rivers);
-    for (const texture of previous) texture.destroy();
     invalidate();
   };
 
@@ -302,11 +332,15 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
       roadLayer.destroy();
       symbolLayer.destroy();
       labelLayer.destroy();
-      heightTexture.destroy();
-      waterTexture.destroy();
-      flowTexture.destroy();
-      biomeTexture.destroy();
+
+      // L'application d'abord, les textures ensuite : les libérer tant que le
+      // shader les référence encore laisse un groupe de liaison invalide, et
+      // PixiJS le signale à chaque démontage.
       app.destroy(true, { children: true });
+      for (const texture of [heightTexture, waterTexture, flowTexture, biomeTexture, ...retired]) {
+        texture.destroy();
+      }
+      retired.length = 0;
     },
   };
 }

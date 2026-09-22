@@ -13,7 +13,7 @@ export interface HeightTexture {
   readonly source: BufferImageSource;
   readonly size: RasterSize;
   /** Réécrit la couche et déclenche le téléversement. */
-  update: (data: Float32Array) => void;
+  update: (data: Float32Array | Uint8Array) => void;
   destroy: () => void;
 }
 
@@ -81,7 +81,10 @@ export function createByteTexture(size: RasterSize, data: Uint8Array): HeightTex
     texture,
     source,
     size,
-    update: () => source.update(),
+    update: (next) => {
+      source.resource = next;
+      source.update();
+    },
     destroy: () => texture.destroy(true),
   };
 }
