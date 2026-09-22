@@ -68,6 +68,7 @@ export function createSymbolLayer(): SymbolLayer {
 
   let sample: TerrainSample | undefined;
   let lastKey = '';
+  let lastViewport: Viewport | undefined;
 
   const draw = (viewport: Viewport): void => {
     graphics.clear();
@@ -150,6 +151,7 @@ export function createSymbolLayer(): SymbolLayer {
   };
 
   const setViewport = (viewport: Viewport): void => {
+    lastViewport = viewport;
     const { pixelsPerDegree, centerLonWorld, centerLat, widthPx, heightPx } = viewport;
 
     container.scale.set(pixelsPerDegree, -pixelsPerDegree);
@@ -176,6 +178,9 @@ export function createSymbolLayer(): SymbolLayer {
     setTerrain: (next) => {
       sample = next;
       lastKey = '';
+      // Sans ce tracé immédiat, les symboles gardaient l'ancien relief jusqu'au
+      // prochain mouvement de caméra : une montagne rasée restait dessinée.
+      if (lastViewport) draw(lastViewport);
     },
     setViewport,
     setVisible: (visible) => {

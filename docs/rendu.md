@@ -69,6 +69,25 @@ void main() {
 
 Le `step` évite une divergence de branche sur le quad. En pratique le shader échantillonne aussi `biomeOverride` en local, `biome` et `flowAcc` en monde, applique l'ombrage de relief (gradient de `h` en différences finies, en tenant compte du wrap), les hachures de côte et le grain de parchemin.
 
+### Le retard des couches d'eau
+
+Elles sont assemblées pour une date, et arrivent après que le curseur a bougé. Les afficher telles
+quelles les place là où elles ne sont plus : la mer reste immobile pendant que la terre glisse, et
+la carte saute quand le calcul arrive enfin.
+
+Le shader compense donc ce retard. Les couches d'eau sont datées, et leur lecture est décalée de ce
+que leur anneau a parcouru depuis ce calcul — un simple `uWaterRingOffsetDeg` en regard de
+`uRingOffsetDeg`. Lacs et rivières glissent alors avec la terre, et le prochain résultat corrige la
+forme sans à-coup.
+
+### Redessiner quand les données changent
+
+PixiJS ne redessine que si la scène a changé. Remplacer une texture ou écrire un uniforme ne l'en
+informe pas : l'image restait figée jusqu'au prochain mouvement de caméra, qui la salissait par
+effet de bord. Toute mise à jour de données demande donc explicitement un rendu. Un test de bout en
+bout verrouille ce point : après un changement de date, un déplacement d'un pixel aller-retour ne
+doit rien changer à l'image.
+
 ## Caméra
 
 - Pan et zoom continus (molette, drag, pinch), zoom centré sur le curseur.

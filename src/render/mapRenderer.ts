@@ -7,6 +7,7 @@
 
 import { Application, Mesh, MeshGeometry, Shader, UniformGroup } from 'pixi.js';
 import { ringOffsetsDeg } from '@/model/time';
+import type { RingConfig as RingConfigType } from '@/model/ring';
 import { normalizeViewport, visibleSpanDeg, type Viewport } from '@/model/viewport';
 import type { RingConfig } from '@/model/ring';
 import type { RasterSize } from '@/model/world';
@@ -67,6 +68,8 @@ export interface MapRenderer {
     biome: Uint8Array,
     rivers: RiverNetwork,
     riverThreshold: number,
+    /** Date à laquelle ces couches ont été calculées. */
+    tDays: number,
   ) => void;
   /** Taille courante du canvas, en pixels CSS. */
   screenSize: () => { widthPx: number; heightPx: number };
@@ -90,6 +93,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     uCenter: { value: new Float32Array([0, 0]), type: 'vec2<f32>' },
     uViewSpanDeg: { value: new Float32Array([360, 180]), type: 'vec2<f32>' },
     uRingOffsetDeg: { value: new Float32Array([0, 0, 0]), type: 'vec3<f32>' },
+    uWaterRingOffsetDeg: { value: new Float32Array([0, 0, 0]), type: 'vec3<f32>' },
     uCutLat: { value: new Float32Array([30, -30]), type: 'vec2<f32>' },
     uRasterSize: { value: new Float32Array([1, 1]), type: 'vec2<f32>' },
     uSeaLevelM: { value: 0, type: 'f32' },
@@ -154,6 +158,20 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
   resizeMesh();
   app.renderer.on('resize', resizeMesh);
 
+  /**
+   * Redessine une fois.
+   *
+   * Pixi ne re-rend que lorsque la scène a changé : remplacer une texture ou un
+   * uniforme ne l'en informe pas, et l'image restait figée jusqu'au prochain
+   * mouvement de caméra. On le lui demande donc explicitement.
+   */
+  const invalidate = (): void => {
+    app.renderer.render(app.stage);
+  };
+
+  /** Dernière configuration reçue, pour dater les couches d'eau. */
+  let lastRingConfig: RingConfigType | undefined;
+
   const screenSize = (): { widthPx: number; heightPx: number } => ({
     widthPx: app.screen.width,
     heightPx: app.screen.height,
@@ -173,9 +191,11 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     riverLayer.setViewport(v);
     roadLayer.setViewport(v);
     labelLayer.setViewport(v);
+    invalidate();
   };
 
   const setView = (view: TerrainView): void => {
+    lastRingConfig = view.ringConfig;
     const offsets = ringOffsetsDeg(view.ringConfig, view.tDays);
     const ringOffset = uniforms.uniforms.uRingOffsetDeg as Float32Array;
     const cut = uniforms.uniforms.uCutLat as Float32Array;
@@ -205,6 +225,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     rasterSize[1] = size.height;
     uniforms.update();
     previous.destroy();
+    invalidate();
   };
 
   const setWater = (
@@ -214,6 +235,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     biome: Uint8Array,
     rivers: RiverNetwork,
     riverThreshold: number,
+    tDays: number,
   ): void => {
     const previous = [waterTexture, flowTexture, biomeTexture];
     waterTexture = createWorldTexture(size, waterLevel);
@@ -227,9 +249,22 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     shader.resources.uBiomeSampler = biomeTexture.texture.source.style;
     uniforms.uniforms.uHasWater = 1;
     uniforms.uniforms.uRiverThreshold = riverThreshold;
+
+    // Les couches arrivent datées : le shader compense ce que les anneaux ont
+    // parcouru depuis, pour que l'eau glisse avec la terre au lieu de rester
+    // là où elle n'est plus.
+    if (lastRingConfig) {
+      const at = ringOffsetsDeg(lastRingConfig, tDays);
+      const waterOffset = uniforms.uniforms.uWaterRingOffsetDeg as Float32Array;
+      waterOffset[0] = at.north;
+      waterOffset[1] = at.equator;
+      waterOffset[2] = at.south;
+    }
+
     uniforms.update();
     riverLayer.setNetwork(rivers);
     for (const texture of previous) texture.destroy();
+    invalidate();
   };
 
   return {
@@ -238,7 +273,10 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     setViewport,
     setView,
     setWater,
-    setTerrainSample: (next) => symbolLayer.setTerrain(next),
+    setTerrainSample: (next) => {
+      symbolLayer.setTerrain(next);
+      invalidate();
+    },
     setPlaces: (next) => labelLayer.setPlaces(next),
     setRoads: (next) => roadLayer.setRoads(next),
     setDraftRoad: (next) => roadLayer.setDraft(next),
@@ -249,6 +287,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
         region !== undefined &&
         uploadRegion(app.renderer, heightTexture.texture.source, data, heightTexture.size, region);
       if (!partial) heightTexture.source.update();
+      invalidate();
     },
 
     refreshBiomeOverride: (data) => {

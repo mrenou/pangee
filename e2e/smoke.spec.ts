@@ -167,3 +167,31 @@ test('peindre le relief, annuler, et retrouver son monde après rechargement', a
   expect(restored).not.toBe(pristine);
   expect(errors).toEqual([]);
 });
+
+test("l'image reflète les données sans qu'on ait à bouger la carte", async ({ page }) => {
+  await page.goto('/');
+  let version = await waitForStillMap(page);
+
+  await page.getByLabel('Date de campagne').fill('30000');
+  await waitForStillMap(page, version);
+  const settled = await canvasHash(page);
+
+  // Un aller-retour d'un pixel remet la carte exactement où elle était. Si
+  // l'image change, c'est que le rendu affichait des données périmées et que
+  // seul le mouvement l'a réveillé — le défaut que ce test verrouille.
+  const box = (await page.locator('canvas').boundingBox())!;
+  await page.mouse.move(box.x + 500, box.y + 350);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 501, box.y + 350);
+  await page.mouse.move(box.x + 500, box.y + 350);
+  await page.mouse.up();
+  await page.waitForTimeout(1200);
+
+  expect(await canvasHash(page)).toBe(settled);
+
+  // Et revenir au Cataclysme redonne bien la carte d'origine.
+  version = await hydroVersion(page);
+  await page.getByRole('button', { name: 'Revenir au Cataclysme' }).click();
+  await waitForStillMap(page, version);
+  expect(await canvasHash(page)).not.toBe(settled);
+});

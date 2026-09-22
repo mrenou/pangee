@@ -178,6 +178,7 @@ export function MapCanvas() {
         water.biome,
         water.rivers,
         water.riverThreshold,
+        water.tDays,
       );
     }
   }, [waterVersion]);

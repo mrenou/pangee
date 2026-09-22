@@ -21,6 +21,8 @@ export interface WaterLayers {
   readonly biome: Uint8Array;
   readonly rivers: RiverNetwork;
   readonly riverThreshold: number;
+  /** Date du calcul : le rendu s'en sert pour compenser le retard. */
+  readonly tDays: number;
 }
 
 interface HydroState {
@@ -67,6 +69,7 @@ export const useHydroStore = create<HydroState>((set) => ({
               biome: reply.biome,
               rivers: { points: reply.riverPoints, starts: reply.riverStarts },
               riverThreshold: reply.riverThreshold,
+              tDays: reply.tDays,
             },
             waterVersion: s.waterVersion + 1,
             lakeCount: reply.lakeCount,

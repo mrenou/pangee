@@ -41,7 +41,8 @@ uniform vec2  uCenter;       // (lonWorld, lat) au centre de l'écran
 uniform vec2  uViewSpanDeg;  // étendue visible en degrés (lon, lat)
 
 // Anneaux
-uniform vec3  uRingOffsetDeg; // Δλ pour nord, équateur, sud
+uniform vec3  uRingOffsetDeg;      // Δλ pour nord, équateur, sud
+uniform vec3  uWaterRingOffsetDeg; // Δλ à la date où l'eau a été calculée
 uniform vec2  uCutLat;        // (cutNorthLat, cutSouthLat)
 
 // Monde
@@ -57,12 +58,28 @@ uniform float uStyle;           // 0 = relief nu, 1 = carte de livre
 
 const float PI = 3.14159265359;
 
-/** Décalage de l'anneau auquel appartient cette latitude. Sans branche. */
-float ringOffsetDeg(float lat) {
+/** Poids de chaque anneau pour cette latitude. Sans branche. */
+vec3 ringMix(float lat) {
   float north = step(uCutLat.x, lat);        // lat >= cutNorth
   float south = step(lat, uCutLat.y);        // lat <= cutSouth
-  float mid   = 1.0 - north - south;
-  return north * uRingOffsetDeg.x + mid * uRingOffsetDeg.y + south * uRingOffsetDeg.z;
+  return vec3(north, 1.0 - north - south, south);
+}
+
+/** Décalage de l'anneau auquel appartient cette latitude. */
+float ringOffsetDeg(float lat) {
+  return dot(ringMix(lat), uRingOffsetDeg);
+}
+
+/**
+ * Retard des couches d'eau sur le terrain.
+ *
+ * Elles ont été assemblées à une date antérieure et arrivent après coup. Plutôt
+ * que de les afficher là où elles ne sont plus, on les lit décalées de ce que
+ * leur anneau a parcouru depuis : lacs et rivières glissent alors avec la
+ * terre, et le prochain calcul corrige la forme.
+ */
+float waterLagDeg(float lat) {
+  return dot(ringMix(lat), uRingOffsetDeg - uWaterRingOffsetDeg);
 }
 
 /** Coordonnée de texture locale d'un point monde, à la date courante. */
@@ -166,13 +183,15 @@ void main() {
     valueNoise(lonLat * 21.0) - 0.5,
     valueNoise(lonLat * 21.0 + 11.7) - 0.5
   ) * cellDeg * 1.1;
+  float lag = waterLagDeg(lonLat.y);
   vec2 waterUv = vec2(
-    fract((lonLat.x + shoreWobble.x + 180.0) / 360.0),
+    fract((lonLat.x - lag + shoreWobble.x + 180.0) / 360.0),
     clamp((90.0 - lonLat.y - shoreWobble.y) / 180.0, 0.0, 1.0)
   );
 
   float waterLevel = texture(uWaterLevel, waterUv).r;
-  float flowAcc = texture(uFlowAcc, worldUv).r;
+  vec2 laggedUv = vec2(fract((lonLat.x - lag + 180.0) / 360.0), worldUv.y);
+  float flowAcc = texture(uFlowAcc, laggedUv).r;
   // Le biome est catégoriel, donc échantillonné au plus proche : à fort zoom,
   // ses frontières seraient des marches d'escalier d'une cellule. On perturbe
   // la coordonnée de lecture d'environ une cellule, ce qui rend les limites
@@ -183,7 +202,7 @@ void main() {
     valueNoise(lonLat * 9.0 + 31.4) - 0.5
   ) * biomeJitterDeg * 1.6;
   vec2 biomeUv = vec2(
-    fract((lonLat.x + biomeWobble.x + 180.0) / 360.0),
+    fract((lonLat.x - lag + biomeWobble.x + 180.0) / 360.0),
     clamp((90.0 - lonLat.y - biomeWobble.y) / 180.0, 0.0, 1.0)
   );
   int biomeId = int(texture(uBiome, biomeUv).r * 255.0 + 0.5);
@@ -270,10 +289,10 @@ void main() {
   // largeur variable par-dessus le terrain, voir src/render/riverLayer.ts.
 
   // Trait de faille : la latitude de coupure, où le cisaillement a lieu.
-  float faultWidth = uViewSpanDeg.y / 300.0;
+  float faultWidth = max(uViewSpanDeg.y / 220.0, 0.02);
   float fault = step(abs(lonLat.y - uCutLat.x), faultWidth)
               + step(abs(lonLat.y - uCutLat.y), faultWidth);
-  color = mix(color, vec3(0.353, 0.208, 0.161), clamp(fault, 0.0, 1.0) * 0.45 * uShowFaults);
+  color = mix(color, vec3(0.278, 0.145, 0.106), clamp(fault, 0.0, 1.0) * 0.8 * uShowFaults);
 
   // Matière du parchemin : une fibre douce, plus des taches très basse
   // fréquence qui évitent les aplats trop propres.
