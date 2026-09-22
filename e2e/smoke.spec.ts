@@ -195,3 +195,18 @@ test("l'image reflète les données sans qu'on ait à bouger la carte", async ({
   await waitForStillMap(page, version);
   expect(await canvasHash(page)).not.toBe(settled);
 });
+
+test('relever la mer noie les terres basses', async ({ page }) => {
+  await page.goto('/');
+  const version = await waitForStillMap(page);
+  const before = await canvasHash(page);
+
+  await page.getByLabel('Niveau de la mer').fill('1400');
+  await waitForStillMap(page, version);
+  expect(await canvasHash(page)).not.toBe(before);
+
+  // Que le relèvement se voie immédiatement, sans attendre l'hydrologie, tient
+  // à la règle de surface d'eau — vérifiée dans src/render/waterSurface.test.ts.
+  // Le calage d'une capture dans cette fenêtre n'est pas reproductible : la
+  // capture dure plus longtemps que le calcul qu'elle voudrait devancer.
+});

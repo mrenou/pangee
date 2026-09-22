@@ -207,11 +207,21 @@ void main() {
   );
   int biomeId = int(texture(uBiome, biomeUv).r * 255.0 + 0.5);
 
-  // Tant que l'hydrologie n'a pas répondu, le niveau de la mer sert de
-  // surface d'eau : le terrain ne doit jamais attendre l'eau pour s'afficher.
-  bool submerged = uHasWater > 0.5 ? waterLevel > h : h < uSeaLevelM;
-  float surfaceM = uHasWater > 0.5 ? waterLevel : uSeaLevelM;
-  float depthOrAlt = submerged ? h - surfaceM : h - uSeaLevelM;
+  // La surface d'eau est la plus haute des deux : le niveau de la mer, connu
+  // tout de suite, et le plan d'eau calculé par l'hydrologie, qui arrive après
+  // coup et n'apporte que les lacs et les mers intérieures.
+  //
+  // C'est ce qui permet de relever la mer et de la voir monter sur-le-champ.
+  // S'en remettre au seul waterLevel laissait les terres basses pâlir sans
+  // jamais passer au bleu, tant que le calcul n'était pas revenu.
+  //
+  // Contrepartie assumée : une cuvette fermée dont le plan d'eau est plus bas
+  // que la mer est affichée au niveau de la mer. Elle est noyée de toute façon,
+  // et l'écart ne se voit pas à cette échelle.
+  float lakeSurfaceM = uHasWater > 0.5 ? waterLevel : -1e9;
+  float surfaceM = max(uSeaLevelM, lakeSurfaceM);
+  bool submerged = surfaceM > h;
+  float depthOrAlt = h - surfaceM;
 
   // Ombrage de relief : gradient en différences finies, sur un pas d'un texel
   // de raster converti en degrés, pour rester stable à tous les zooms.
