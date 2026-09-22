@@ -69,16 +69,22 @@ void main() {
 
 Le `step` évite une divergence de branche sur le quad. En pratique le shader échantillonne aussi `biomeOverride` en local, `biome` et `flowAcc` en monde, applique l'ombrage de relief (gradient de `h` en différences finies, en tenant compte du wrap), les hachures de côte et le grain de parchemin.
 
-### Le retard des couches d'eau
+### Le retard des couches dérivées
 
-Elles sont assemblées pour une date, et arrivent après que le curseur a bougé. Les afficher telles
-quelles les place là où elles ne sont plus : la mer reste immobile pendant que la terre glisse, et
-la carte saute quand le calcul arrive enfin.
+Relief assemblé, eau, biomes, réseau hydrographique : tout ce qui vit en référentiel monde est
+calculé pour une date, et n'arrive qu'après que le curseur a bougé. Les afficher tels quels les
+laisse en arrière du continent — la mer reste immobile pendant que la terre glisse, les rivières
+quittent leurs vallées, les montagnes se posent sur un relief périmé — puis la carte saute quand le
+calcul arrive.
 
-Le shader compense donc ce retard. Les couches d'eau sont datées, et leur lecture est décalée de ce
-que leur anneau a parcouru depuis ce calcul — un simple `uWaterRingOffsetDeg` en regard de
-`uRingOffsetDeg`. Lacs et rivières glissent alors avec la terre, et le prochain résultat corrige la
-forme sans à-coup.
+Chaque couche est donc **datée**, et sa lecture décalée de ce que son anneau a parcouru depuis. Le
+rattrapage est **exact**, non approché : le monde local, lui, n'a pas bougé, si bien que lire la
+couche à la position qu'elle occupait alors redonne rigoureusement le bon morceau de terrain. Le
+calcul suivant ne corrige plus que la forme de l'eau.
+
+La règle vit dans `src/render/worldLag.ts`, testée, et sert au semis des symboles comme au tracé des
+rivières ; le shader la recopie en GLSL sous la forme d'un `uWaterRingOffsetDeg` en regard de
+`uRingOffsetDeg`.
 
 ### Quelle eau recouvre une cellule
 
