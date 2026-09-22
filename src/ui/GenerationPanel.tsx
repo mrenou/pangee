@@ -7,6 +7,9 @@ export function GenerationPanel() {
   const status = useWorldStore((s) => s.status);
   const error = useWorldStore((s) => s.error);
   const setTerrain = useWorldStore((s) => s.setTerrain);
+  const placeDensity = useWorldStore((s) => s.placeDensity);
+  const setPlaceDensity = useWorldStore((s) => s.setPlaceDensity);
+  const places = useWorldStore((s) => s.places);
   const regenerate = useWorldStore((s) => s.regenerate);
 
   return (
@@ -53,6 +56,17 @@ export function GenerationPanel() {
         step={0.01}
         current={terrain.roughness}
         onChange={(roughness) => setTerrain({ roughness })}
+      />
+
+      <Field
+        id="place-density"
+        label="Peuplement"
+        value={`${places.length} lieux`}
+        min={0}
+        max={1}
+        step={0.01}
+        current={placeDensity}
+        onChange={setPlaceDensity}
       />
 
       <button

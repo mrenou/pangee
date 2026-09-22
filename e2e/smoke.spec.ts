@@ -102,3 +102,22 @@ test("l'hydrologie trouve des lacs et reste sous la seconde", async ({ page }) =
   expect(Number(await status.getAttribute('data-hydro-lakes'))).toBeGreaterThan(0);
   expect(Number(await status.getAttribute('data-hydro-elapsed-ms'))).toBeLessThan(1000);
 });
+
+test('le monde est peuplé de lieux nommés', async ({ page }) => {
+  await page.goto('/');
+  await waitForStillMap(page);
+
+  // Le panneau compte les lieux produits par la génération.
+  const count = page.getByText(/^\d+ lieux$/);
+  await expect(count).toBeVisible();
+  const placed = Number(((await count.textContent()) ?? '').replace(/\D/g, ''));
+  expect(placed).toBeGreaterThan(20);
+
+  // Demander plus de peuplement en produit davantage.
+  const before = placed;
+  await page.getByLabel('Peuplement').fill('1');
+  await page.getByRole('button', { name: 'Régénérer' }).click();
+  await waitForStillMap(page, await hydroVersion(page));
+  const after = Number(((await count.textContent()) ?? '').replace(/\D/g, ''));
+  expect(after).toBeGreaterThan(before);
+});

@@ -11,8 +11,10 @@ import { normalizeViewport, visibleSpanDeg, type Viewport } from '@/model/viewpo
 import type { RingConfig } from '@/model/ring';
 import type { RasterSize } from '@/model/world';
 import type { RiverNetwork } from '@/hydro/rivers';
+import type { Place } from '@/model/world';
 import { TERRAIN_FRAGMENT, TERRAIN_VERTEX } from '@/render/terrainShader';
 import { biomePaletteArray } from '@/render/palette';
+import { createLabelLayer } from '@/render/labelLayer';
 import { createRiverLayer } from '@/render/riverLayer';
 import { createSymbolLayer, type TerrainSample } from '@/render/symbolLayer';
 import {
@@ -42,6 +44,8 @@ export interface MapRenderer {
   /** Couches d'eau calculées par le worker, en référentiel monde. */
   /** Relief assemblé et biomes, pour le semis des symboles. */
   setTerrainSample: (sample: TerrainSample) => void;
+  /** Lieux à nommer, en référentiel local. */
+  setPlaces: (places: readonly Place[]) => void;
   setWater: (
     size: RasterSize,
     waterLevel: Float32Array,
@@ -123,6 +127,10 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
   const riverLayer = createRiverLayer();
   app.stage.addChild(riverLayer.container);
 
+  // Les lieux passent au-dessus de tout : ce sont eux qu'on lit en premier.
+  const labelLayer = createLabelLayer();
+  app.stage.addChild(labelLayer.container);
+
   const resizeMesh = (): void => {
     mesh.scale.set(app.screen.width, app.screen.height);
   };
@@ -146,6 +154,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     uniforms.update();
     symbolLayer.setViewport(v);
     riverLayer.setViewport(v);
+    labelLayer.setViewport(v);
   };
 
   const setView = (view: TerrainView): void => {
@@ -163,6 +172,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     uniforms.uniforms.uShowFaults = view.showFaults ? 1 : 0;
     uniforms.uniforms.uStyle = view.bookStyle ? 1 : 0;
     symbolLayer.setVisible(view.bookStyle);
+    labelLayer.setTime(view.ringConfig, view.tDays);
     uniforms.update();
   };
 
@@ -210,11 +220,13 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     setView,
     setWater,
     setTerrainSample: (next) => symbolLayer.setTerrain(next),
+    setPlaces: (next) => labelLayer.setPlaces(next),
     screenSize,
     destroy: () => {
       app.renderer.off('resize', resizeMesh);
       riverLayer.destroy();
       symbolLayer.destroy();
+      labelLayer.destroy();
       heightTexture.destroy();
       waterTexture.destroy();
       flowTexture.destroy();
