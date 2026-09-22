@@ -9,7 +9,9 @@
 
 import { Container, Graphics } from 'pixi.js';
 import type { RiverNetwork } from '@/hydro/rivers';
+import type { RingConfig } from '@/model/ring';
 import type { Viewport } from '@/model/viewport';
+import { worldLagDeg } from '@/render/worldLag';
 
 /** Épaisseur à l'écran d'un ruisseau au seuil, en pixels. */
 const BASE_WIDTH_PX = 0.9;
@@ -25,7 +27,10 @@ const REPEATS = [-360, 0, 360] as const;
 
 export interface RiverLayer {
   readonly container: Container;
-  setNetwork: (network: RiverNetwork | undefined) => void;
+  /** Réseau extrait, et date à laquelle il l'a été. */
+  setNetwork: (network: RiverNetwork | undefined, tDays: number) => void;
+  /** Date et anneaux courants, pour rattraper le retard du réseau. */
+  setTime: (ringConfig: RingConfig, tDays: number) => void;
   setViewport: (viewport: Viewport) => void;
   destroy: () => void;
 }
@@ -39,10 +44,26 @@ export function createRiverLayer(): RiverLayer {
   });
 
   let network: RiverNetwork | undefined;
+  let networkTDays = 0;
+  let ringConfig: RingConfig | undefined;
+  let tDays = 0;
   let drawnAtPixelsPerDegree = 0;
+  let drawnLag = '';
+
+  /**
+   * Décalage à rattraper pour une latitude donnée.
+   *
+   * Le réseau a été extrait en référentiel monde, à une date antérieure. Le
+   * décaler de ce que son anneau a parcouru depuis remet chaque cours d'eau sur
+   * sa vallée : sans cela les rivières restent en arrière et ne rejoignent le
+   * continent qu'au calcul suivant.
+   */
+  const lagAt = (lat: number): number =>
+    ringConfig ? worldLagDeg(ringConfig, lat, tDays, networkTDays) : 0;
 
   const draw = (pixelsPerDegree: number): void => {
     drawnAtPixelsPerDegree = pixelsPerDegree;
+    drawnLag = `${tDays}:${networkTDays}`;
     for (const graphics of copies) graphics.clear();
     if (!network || pixelsPerDegree <= 0) return;
 
@@ -59,9 +80,11 @@ export function createRiverLayer(): RiverLayer {
         // segment, chacun à la largeur de son point amont.
         for (let p = from; p < to - 1; p += 1) {
           const width = points[p * 3 + 2]!;
+          const latA = points[p * 3 + 1]!;
+          const latB = points[(p + 1) * 3 + 1]!;
           graphics
-            .moveTo(points[p * 3]!, points[p * 3 + 1]!)
-            .lineTo(points[(p + 1) * 3]!, points[(p + 1) * 3 + 1]!)
+            .moveTo(points[p * 3]! + lagAt(latA), latA)
+            .lineTo(points[(p + 1) * 3]! + lagAt(latB), latB)
             .stroke({
               // Les coordonnées sont en degrés : on convertit l'épaisseur
               // voulue à l'écran en degrés pour compenser l'échelle.
@@ -79,7 +102,9 @@ export function createRiverLayer(): RiverLayer {
   const setViewport = (viewport: Viewport): void => {
     const { pixelsPerDegree, centerLonWorld, centerLat, widthPx, heightPx } = viewport;
 
-    if (pixelsPerDegree !== drawnAtPixelsPerDegree) draw(pixelsPerDegree);
+    if (pixelsPerDegree !== drawnAtPixelsPerDegree || drawnLag !== `${tDays}:${networkTDays}`) {
+      draw(pixelsPerDegree);
+    }
 
     // La latitude croît vers le nord, l'écran vers le sud : l'échelle en y est
     // négative.
@@ -96,8 +121,14 @@ export function createRiverLayer(): RiverLayer {
 
   return {
     container,
-    setNetwork: (next) => {
+    setNetwork: (next, at) => {
       network = next;
+      networkTDays = at;
+      draw(drawnAtPixelsPerDegree);
+    },
+    setTime: (config, days) => {
+      ringConfig = config;
+      tDays = days;
       draw(drawnAtPixelsPerDegree);
     },
     setViewport,

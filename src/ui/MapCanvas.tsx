@@ -48,6 +48,7 @@ function pushAll(renderer: MapRenderer): void {
       biome: water.biome,
       waterLevel: water.waterLevel,
       seaLevelM: world.seaLevelM,
+      tDays: water.tDays,
     });
     renderer.setWater(
       water.size,
@@ -207,6 +208,7 @@ export function MapCanvas() {
         biome: water.biome,
         waterLevel: water.waterLevel,
         seaLevelM: useWorldStore.getState().seaLevelM,
+        tDays: water.tDays,
       });
       rendererRef.current?.setWater(
         water.size,

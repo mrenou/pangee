@@ -16,6 +16,7 @@ import type { Viewport } from '@/model/viewport';
 import type { RasterSize } from '@/model/world';
 import { FINE_STEP_DEG, seedPoint, seedPointInWorld, strideFor } from '@/render/seedGrid';
 import { isSubmerged } from '@/render/waterSurface';
+import { worldLagDeg } from '@/render/worldLag';
 import {
   drawConifer,
   drawDune,
@@ -46,6 +47,8 @@ export interface TerrainSample {
   readonly biome: Uint8Array;
   readonly waterLevel: Float32Array;
   readonly seaLevelM: number;
+  /** Date à laquelle ces couches ont été assemblées. */
+  readonly tDays: number;
 }
 
 export interface SymbolLayer {
@@ -99,6 +102,12 @@ export function createSymbolLayer(): SymbolLayer {
       const rowLat = (j + 0.5) * FINE_STEP_DEG;
       const offsetDeg = cfg ? ringOffsetDeg(cfg.rings[ringOf(rowLat, cfg)], tDays, cfg.t0) : 0;
 
+      // Le relief assemblé date du dernier calcul : on le lit à la position
+      // qu'il occupait alors. Sans cela les symboles se déplaçaient bien tout
+      // de suite, mais se posaient sur un relief périmé, et les montagnes ne
+      // rattrapaient le continent qu'au calcul suivant.
+      const lagDeg = cfg ? worldLagDeg(cfg, rowLat, tDays, sample.tDays) : 0;
+
       const fromI = align(centerLonWorld - halfLon - offsetDeg);
       const toI = align(centerLonWorld + halfLon - offsetDeg) + stride;
 
@@ -109,7 +118,11 @@ export function createSymbolLayer(): SymbolLayer {
         const { lon, lat, r1, r2, r3 } = cfg ? seedPointInWorld(i, j, cfg, tDays) : seedPoint(i, j);
         if (lat > 89 || lat < -89) continue;
 
-        const cell = idx(columnOfLon(lon, size.width), rowOfLat(lat, size.height), size.width);
+        const cell = idx(
+          columnOfLon(lon - lagDeg, size.width),
+          rowOfLat(lat, size.height),
+          size.width,
+        );
 
         // Rien ne pousse sur l'eau, selon la même règle que le shader.
         if (isSubmerged(heightWorld[cell]!, seaLevelM, waterLevel[cell])) continue;

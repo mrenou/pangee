@@ -226,6 +226,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     labelLayer.setTime(view.ringConfig, view.tDays);
     roadLayer.setTime(view.ringConfig, view.tDays);
     symbolLayer.setTime(view.ringConfig, view.tDays);
+    riverLayer.setTime(view.ringConfig, view.tDays);
     uniforms.update();
   };
 
@@ -294,7 +295,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     }
 
     uniforms.update();
-    riverLayer.setNetwork(rivers);
+    riverLayer.setNetwork(rivers, tDays);
     invalidate();
   };
 
