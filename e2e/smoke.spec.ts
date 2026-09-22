@@ -46,6 +46,58 @@ async function waitForStillMap(page: Page, after = 0): Promise<number> {
   return hydroVersion(page);
 }
 
+test('le relief est bien rendu, et non un aplat de parchemin', async ({ page }) => {
+  await page.goto('/');
+  await waitForStillMap(page);
+
+  const box = (await page.locator('canvas').boundingBox())!;
+  // Le cadrage se fait sur la page : un clip passé au screenshot d'un locator
+  // est appliqué au cadre de l'élément, pas aux coordonnées qu'on croit.
+  const patch = async (x: number, y: number) =>
+    createHash('sha1')
+      .update(
+        await page.screenshot({ clip: { x: box.x + x, y: box.y + y, width: 140, height: 140 } }),
+      )
+      .digest('hex');
+
+  const corners = [
+    await patch(30, 30),
+    await patch(box.width - 180, 30),
+    await patch(30, box.height - 180),
+    await patch(box.width - 180, box.height - 180),
+  ];
+
+  // Quatre fenêtres aux quatre coins : un aplat les rendrait toutes égales.
+  expect(new Set(corners).size).toBeGreaterThan(1);
+});
+
+test('les réglages du monde survivent au rechargement', async ({ page }) => {
+  await page.goto('/');
+  await waitForStillMap(page);
+
+  // Relever la mer noie des bassins : le nombre de lacs en témoigne.
+  await page.getByLabel('Niveau de la mer').fill('1200');
+  await waitForStillMap(page, await hydroVersion(page));
+  const lakes = await page.locator('[data-hydro-version]').getAttribute('data-hydro-lakes');
+
+  // L'autosave est différé : on lui laisse le temps d'écrire.
+  await page.waitForTimeout(2500);
+  await page.reload();
+  await waitForStillMap(page);
+
+  // Les réglages font partie du document au même titre que le relief. Ne pas
+  // les enregistrer faisait retrouver un monde au niveau de la mer d'origine.
+  await expect(page.getByLabel('Niveau de la mer')).toHaveValue('1200');
+
+  // Le monde relu est le même à la précision d'enregistrement près : le relief
+  // est stocké en entiers 16 bits, et quelques cuvettes de trente centimètres
+  // basculent de part et d'autre du seuil qui fait un lac. On tolère donc un
+  // écart de quelques pour cent, mais pas le retour au monde d'avant.
+  const after = Number(await page.locator('[data-hydro-version]').getAttribute('data-hydro-lakes'));
+  expect(after).toBeGreaterThan(Number(lakes) * 0.97);
+  expect(after).toBeLessThan(Number(lakes) * 1.03);
+});
+
 test('la carte se dessine et les anneaux glissent avec la date', async ({ page }) => {
   const errors: string[] = [];
   page.on('console', (message) => {

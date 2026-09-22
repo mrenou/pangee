@@ -68,6 +68,17 @@ inférieure au relief d'une cellule de ~20 km de côté, pour la moitié de la t
 pour qui veut conserver l'exactitude bit à bit d'un monde généré. Le choix est enregistré par monde, pas
 global : le lecteur se conforme à ce que dit `world.json`.
 
+### Ce que l'autosave doit couvrir
+
+Le document, ce n'est pas seulement le relief : la configuration des anneaux, la date de campagne,
+le niveau de la mer et le rayon en font partie. Les régler sans enregistrer faisait retrouver, au
+rechargement, un monde revenu à ses valeurs d'origine — le relief peint était bien là, mais la mer
+était redescendue.
+
+Toute écriture sur l'une de ces valeurs programme donc une sauvegarde, au même titre qu'un coup de
+pinceau. Un test de bout en bout le vérifie en relevant la mer, rechargeant la page, et comparant
+le nombre de lacs.
+
 ## Endianness
 
 Les entrées binaires sont **little-endian**, explicitement, et le champ `rasters.endianness` le documente.
