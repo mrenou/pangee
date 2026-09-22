@@ -110,6 +110,21 @@ basses que la mer passent pour marines : l'écart ne se voit pas à cette échel
 transporter une couche de plus jusqu'au shader. La règle est dans
 `src/render/waterSurface.ts`, testée, et le GLSL la recopie.
 
+### Ne pas libérer une texture encore liée
+
+Les couches d'eau changent à chaque calcul. Les remplacer par de nouvelles textures, puis détruire
+les anciennes, laisse le groupe de liaison du shader pointer sur des sources mortes : PixiJS
+avertit, et selon le pilote le terrain cesse purement et simplement d'être dessiné — le rendu
+logiciel des tests le tolérait, un vrai GPU beaucoup moins.
+
+À taille égale, le contenu des textures est donc **réécrit en place** plutôt que remplacé : rien
+n'est réalloué, et le shader garde ses références. Quand la taille change — au premier téléversement,
+la texture d'attente d'un seul texel devenant la vraie couche — les anciennes sont mises de côté et
+libérées seulement après le rendu suivant, qui a reconstruit la liaison.
+
+Il subsiste le même avertissement au démontage du moteur, `app.destroy` ne libérant pas le shader
+qui référence encore les textures. Il est sans conséquence, tout étant détruit dans la foulée.
+
 ### Redessiner quand les données changent
 
 PixiJS ne redessine que si la scène a changé. Remplacer une texture ou écrire un uniforme ne l'en
