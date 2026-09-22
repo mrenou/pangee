@@ -10,7 +10,8 @@ import { generateWorld, type GenerateWorldRequest, type GenerateWorldResult } fr
 const api = {
   generateWorld(request: GenerateWorldRequest): GenerateWorldResult {
     const result = generateWorld(request);
-    // Transfert sans copie : les tampons quittent le worker.
+    // Transfert sans copie : les tampons quittent le worker. Les lieux sont
+    // des objets, ils sont clonés comme le reste du message.
     return Comlink.transfer(result, [result.height.buffer, result.biomeOverride.buffer]);
   },
 };
