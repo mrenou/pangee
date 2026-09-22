@@ -107,6 +107,11 @@ qui s'ajuste au zoom, et toujours par puissances de deux. En zoomant il est divi
 points déjà affichés le restent — un multiple de huit est un multiple de quatre — et de nouveaux
 s'intercalent entre eux. Un symbole n'est jamais déplacé, il apparaît ou disparaît.
 
+Cette grille est en **référentiel local**, et non en référentiel monde : un symbole reste accroché
+à son morceau de terrain et glisse avec son anneau, comme une ville. L'ancrer au monde laissait le
+relief défiler sous un semis immobile — un point posé sur un sommet se retrouvait en plaine, et les
+montagnes semblaient changer de forme sur place à mesure que le continent passait.
+
 Le coût ne dépend pas de la finesse de la grille : le pas compense, de sorte que le nombre de
 points visités reste proportionnel à la surface de l'écran.
 

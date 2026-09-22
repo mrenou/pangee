@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_RING_CONFIG, type RingConfig } from '@/model/ring';
+import { ringOffsetDeg } from '@/model/time';
 import {
   FINE_STEP_DEG,
   appearanceLevel,
   hashCell,
   seedPoint,
+  seedPointInWorld,
   spreadOf,
   strideFor,
 } from '@/render/seedGrid';
@@ -114,5 +117,69 @@ describe('hash de case', () => {
 
   it('est reproductible', () => {
     expect(hashCell(42, -17)).toBe(hashCell(42, -17));
+  });
+});
+
+describe('suivi des anneaux', () => {
+  const cfg: RingConfig = {
+    ...DEFAULT_RING_CONFIG,
+    rings: {
+      north: { id: 'north', omegaDegPerDay: 0.05 },
+      equator: { id: 'equator', omegaDegPerDay: 0 },
+      south: { id: 'south', omegaDegPerDay: -0.03 },
+    },
+  };
+
+  /** Indices dont la latitude tombe dans la bande visée. */
+  const jFor = (lat: number): number => Math.round(lat / FINE_STEP_DEG - 0.5);
+
+  it('ne décale rien au Cataclysme', () => {
+    const j = jFor(50);
+    expect(seedPointInWorld(100, j, cfg, cfg.t0).lon).toBeCloseTo(seedPoint(100, j).lon, 9);
+  });
+
+  it('emporte un point avec son anneau', () => {
+    const j = jFor(50);
+    const local = seedPoint(100, j);
+    const world = seedPointInWorld(100, j, cfg, 1000);
+    const offset = ringOffsetDeg(cfg.rings.north, 1000, cfg.t0);
+    expect(world.lon).toBeCloseTo(local.lon + offset, 6);
+  });
+
+  it('laisse en place un point de l anneau immobile', () => {
+    const j = jFor(0);
+    expect(seedPointInWorld(100, j, cfg, 5000).lon).toBeCloseTo(seedPoint(100, j).lon, 9);
+  });
+
+  it('décale les anneaux en sens opposés', () => {
+    const north = seedPointInWorld(100, jFor(50), cfg, 1000);
+    const south = seedPointInWorld(100, jFor(-50), cfg, 1000);
+    const dNorth = north.lon - seedPoint(100, jFor(50)).lon;
+    const dSouth = south.lon - seedPoint(100, jFor(-50)).lon;
+    expect(dNorth).toBeGreaterThan(0);
+    expect(dSouth).toBeLessThan(0);
+  });
+
+  it('ne touche ni à la latitude ni aux tirages', () => {
+    const j = jFor(50);
+    const local = seedPoint(100, j);
+    const world = seedPointInWorld(100, j, cfg, 1000);
+    expect(world.lat).toBe(local.lat);
+    expect(world.r1).toBe(local.r1);
+    expect(world.r3).toBe(local.r3);
+  });
+
+  it('garde le point sur son terrain : la position locale est invariante', () => {
+    // C'est la propriété qui manquait. Retrancher le décalage de l'anneau
+    // redonne toujours la même longitude locale, quelle que soit la date.
+    const j = jFor(50);
+    for (const tDays of [0, 120, 4000, 36500]) {
+      const world = seedPointInWorld(100, j, cfg, tDays);
+      const back = world.lon - ringOffsetDeg(cfg.rings.north, tDays, cfg.t0);
+      expect(((back % 360) + 540) % 360).toBeCloseTo(
+        ((seedPoint(100, j).lon % 360) + 540) % 360,
+        6,
+      );
+    }
   });
 });
