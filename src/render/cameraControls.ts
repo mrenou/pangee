@@ -18,6 +18,10 @@ export function attachCameraControls(
   element: HTMLElement,
   getViewport: () => Viewport,
   onChange: (viewport: Viewport) => void,
+  /** Le déplacement au glisser n'a lieu que si ceci renvoie vrai : un outil
+   * actif doit pouvoir peindre sans déplacer la carte. Le zoom, lui, reste
+   * toujours disponible. */
+  canPan: () => boolean = () => true,
 ): CameraControls {
   let dragging = false;
   let lastX = 0;
@@ -29,7 +33,7 @@ export function attachCameraControls(
   };
 
   const onPointerDown = (event: PointerEvent): void => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || !canPan()) return;
     dragging = true;
     lastX = event.clientX;
     lastY = event.clientY;
