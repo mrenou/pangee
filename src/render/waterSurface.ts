@@ -34,3 +34,20 @@ export function isSubmerged(
 ): boolean {
   return waterSurfaceM(seaLevelM, waterLevelM) > heightM;
 }
+
+/**
+ * S'agit-il d'eau douce ?
+ *
+ * Un plan d'eau perché au-dessus du niveau marin est un lac. Les rares cuvettes
+ * fermées plus basses que la mer passent pour marines : l'écart ne se voit pas
+ * à cette échelle, et cela évite de transporter une couche de plus jusqu'au
+ * shader. La règle est recopiée en GLSL, d'où sa présence ici.
+ */
+export function isFreshWater(
+  heightM: number,
+  seaLevelM: number,
+  waterLevelM: number | undefined,
+): boolean {
+  if (waterLevelM === undefined) return false;
+  return isSubmerged(heightM, seaLevelM, waterLevelM) && waterLevelM > seaLevelM + 1;
+}

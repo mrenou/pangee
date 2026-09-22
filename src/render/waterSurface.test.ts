@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DRY_SENTINEL, isSubmerged, waterSurfaceM } from '@/render/waterSurface';
+import { DRY_SENTINEL, isFreshWater, isSubmerged, waterSurfaceM } from '@/render/waterSurface';
 
 describe('surface d eau', () => {
   it('retient le niveau de la mer sur une cellule sèche', () => {
@@ -32,5 +32,33 @@ describe('surface d eau', () => {
   it('laisse la mer primer sur une cuvette plus basse qu elle', () => {
     // Compromis documenté : la dépression est noyée de toute façon.
     expect(waterSurfaceM(0, -200)).toBe(0);
+  });
+});
+
+describe('eau douce', () => {
+  it('reconnaît un lac perché au-dessus de la mer', () => {
+    expect(isFreshWater(600, 0, 820)).toBe(true);
+  });
+
+  it('ne prend pas la mer pour un lac', () => {
+    expect(isFreshWater(-300, 0, 0)).toBe(false);
+  });
+
+  it('ne voit pas de lac sur une terre sèche', () => {
+    expect(isFreshWater(500, 0, DRY_SENTINEL)).toBe(false);
+  });
+
+  it("n'en voit pas non plus tant que l'hydrologie n'a rien dit", () => {
+    expect(isFreshWater(500, 900, undefined)).toBe(false);
+  });
+
+  it('classe comme marine une cuvette plus basse que la mer', () => {
+    // Compromis documenté : cette dépression est noyée de toute façon.
+    expect(isFreshWater(-500, 0, -200)).toBe(false);
+  });
+
+  it('suit le niveau de la mer quand on le relève', () => {
+    // Un lac à 820 m se retrouve sous une mer montée à 1200 m.
+    expect(isFreshWater(600, 1200, 820)).toBe(false);
   });
 });
