@@ -9,7 +9,6 @@ import {
 import { DEFAULT_RING_CONFIG, type RingConfig, type RingId } from '@/model/ring';
 import { DEFAULT_SETTINGS, RASTER_2K, type Place, type RasterSize, type Road } from '@/model/world';
 import { generateWorldInWorker } from '@/workers/genClient';
-import { useHydroStore } from '@/store/hydroStore';
 import { createAutosave, downloadWorld, loadLastWorld, readWorldFile } from '@/store/persistence';
 import type { WorldDocument } from '@/model/file';
 import { FOG_DOWNSCALE } from '@/model/world';
@@ -34,7 +33,10 @@ interface WorldState {
   rasterSize: RasterSize;
   height: Float32Array | undefined;
   biomeOverride: Uint8Array | undefined;
-  /** Incrémenté à chaque nouveau relief, pour que le rendu sache re-téléverser. */
+  /**
+   * Incrémenté à chaque nouveau monde et à chaque édition raster : le rendu
+   * re-téléverse le relief, le worker hydrologique reçoit ses nouvelles couches.
+   */
   heightVersion: number;
 
   status: GenerationStatus;
@@ -221,7 +223,6 @@ export const useWorldStore = create<WorldState>((set, get) => ({
       status: 'idle',
       error: undefined,
     }));
-    void useHydroStore.getState().setHeight(doc.size, doc.height);
   },
 
   scheduleAutosave: () => {
@@ -247,9 +248,6 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         radiusKm,
         ringConfig,
       });
-      // Le worker hydrologique garde sa propre copie du relief : changer de
-      // date ne lui renverra plus que quelques nombres.
-      await useHydroStore.getState().setHeight(result.size, result.height);
       set((s) => ({
         height: result.height,
         biomeOverride: result.biomeOverride,

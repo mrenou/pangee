@@ -25,9 +25,22 @@ function ensureWorker(): Comlink.Remote<HydroApi> {
   return api;
 }
 
-/** Transmet une copie du relief : le tampon d'origine reste utilisable ici. */
-export async function sendHeightToHydro(size: RasterSize, height: Float32Array): Promise<void> {
-  await ensureWorker().setHeight(size, new Float32Array(height));
+/**
+ * Transmet une copie des couches locales : les tampons d'origine restent
+ * utilisables ici, et le pinceau peut continuer d'y écrire.
+ */
+export async function sendLayersToHydro(
+  size: RasterSize,
+  height: Float32Array,
+  biomeOverride: Uint8Array,
+): Promise<void> {
+  const heightCopy = new Float32Array(height);
+  const overrideCopy = new Uint8Array(biomeOverride);
+  await ensureWorker().setLayers(
+    size,
+    Comlink.transfer(heightCopy, [heightCopy.buffer]),
+    Comlink.transfer(overrideCopy, [overrideCopy.buffer]),
+  );
 }
 
 /**

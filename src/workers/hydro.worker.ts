@@ -1,13 +1,20 @@
 /**
  * Worker hydrologique.
  *
- * Il garde le relief local en mémoire : changer la date ne renvoie donc que
- * quelques nombres, pas huit mégaoctets. Voir docs/architecture.md.
+ * Il garde les couches locales en mémoire : changer la date ne renvoie donc
+ * que quelques nombres, pas dix mégaoctets. Elles ne lui sont renvoyées qu'à
+ * la fin d'une édition. Voir docs/architecture.md.
  */
 
 import * as Comlink from 'comlink';
 import { computeBiomes, createClimateBuffers, type ClimateBuffers } from '@/climate';
-import { assembleHeightWorld, computeHydro, riverThreshold, DRY } from '@/hydro';
+import {
+  assembleHeightWorld,
+  assembleLayerWorld,
+  computeHydro,
+  riverThreshold,
+  DRY,
+} from '@/hydro';
 import { extractRivers } from '@/hydro/rivers';
 import type { RingConfig } from '@/model/ring';
 import type { RasterSize } from '@/model/world';
@@ -42,24 +49,36 @@ export interface HydroReply {
 let size: RasterSize | undefined;
 let heightLocal: Float32Array | undefined;
 let heightWorld: Float32Array | undefined;
+let overrideLocal: Uint8Array | undefined;
+let overrideWorld: Uint8Array | undefined;
 let climate: ClimateBuffers | undefined;
 
 const api = {
-  /** Reçoit une copie du relief local. Appelé à chaque régénération. */
-  setHeight(nextSize: RasterSize, height: Float32Array): void {
+  /**
+   * Reçoit une copie du relief et de l'override de biome, en référentiel
+   * local. Appelé à chaque nouveau monde et à la fin de chaque édition raster.
+   */
+  setLayers(nextSize: RasterSize, height: Float32Array, biomeOverride: Uint8Array): void {
+    const resized = size?.width !== nextSize.width || size.height !== nextSize.height;
     size = nextSize;
     heightLocal = height;
-    heightWorld = new Float32Array(height.length);
-    climate = createClimateBuffers(nextSize);
+    overrideLocal = biomeOverride;
+    if (resized || !heightWorld || !overrideWorld || !climate) {
+      heightWorld = new Float32Array(height.length);
+      overrideWorld = new Uint8Array(height.length);
+      climate = createClimateBuffers(nextSize);
+    }
   },
 
   compute(request: HydroRequest): HydroReply {
-    if (!size || !heightLocal || !heightWorld || !climate) {
+    if (!size || !heightLocal || !heightWorld || !overrideLocal || !overrideWorld || !climate) {
       throw new Error("Le relief n'a pas encore été transmis au worker hydrologique.");
     }
 
     const started = performance.now();
     assembleHeightWorld(size, heightLocal, request.ringConfig, request.tDays, heightWorld);
+    // L'override est peint en local : il glisse avec son anneau, comme le relief.
+    assembleLayerWorld(size, overrideLocal, request.ringConfig, request.tDays, overrideWorld);
     const state = computeHydro({
       size,
       heightWorld,
@@ -83,6 +102,7 @@ const api = {
         seaLevelM: request.seaLevelM,
         riverThreshold: threshold,
         seed: request.seed,
+        biomeOverride: overrideWorld,
       },
       climate,
     );

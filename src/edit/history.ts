@@ -20,6 +20,12 @@ export interface EditTarget {
 
 export interface Command {
   readonly label: string;
+  /**
+   * Une commande raster modifie le relief ou l'override : le rendu et le
+   * worker hydrologique doivent relire les couches. Une commande vectorielle
+   * ne touche qu'aux lieux et aux routes.
+   */
+  readonly kind: 'raster' | 'vector';
   /** Coût mémoire, pour borner la pile. */
   readonly bytes: number;
   apply: (target: EditTarget) => void;
@@ -42,6 +48,7 @@ function layerOf(target: EditTarget, patch: RasterPatch): Float32Array | Uint8Ar
 export function rasterCommand(label: string, patch: RasterPatch): Command {
   return {
     label,
+    kind: 'raster',
     bytes: patchBytes(patch),
     apply: (target) => {
       const layer = layerOf(target, patch);
@@ -62,6 +69,7 @@ export function placesCommand(
 ): Command {
   return {
     label,
+    kind: 'vector',
     bytes: (before.length + after.length) * 128,
     apply: (target) => {
       target.places = after;
@@ -80,6 +88,7 @@ export function roadsCommand(
   const points = [...before, ...after].reduce((n, road) => n + road.points.length, 0);
   return {
     label,
+    kind: 'vector',
     bytes: points * 16,
     apply: (target) => {
       target.roads = after;

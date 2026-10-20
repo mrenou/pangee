@@ -144,16 +144,18 @@ export const useEditStore = create<EditState>((set, get) => ({
   undo: () => {
     const target = editTarget();
     if (!target) return;
-    history.undo(target);
+    const command = history.undo(target);
     set(syncFlags());
+    if (command?.kind === 'raster') useWorldStore.getState().bumpHeightVersion();
     useWorldStore.getState().scheduleAutosave();
   },
 
   redo: () => {
     const target = editTarget();
     if (!target) return;
-    history.redo(target);
+    const command = history.redo(target);
     set(syncFlags());
+    if (command?.kind === 'raster') useWorldStore.getState().bumpHeightVersion();
     useWorldStore.getState().scheduleAutosave();
   },
 

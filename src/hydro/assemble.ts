@@ -29,6 +29,21 @@ export function assembleHeightWorld(
   tDays: number,
   out: Float32Array = new Float32Array(size.width * size.height),
 ): Float32Array {
+  return assembleLayerWorld(size, heightLocal, cfg, tDays, out);
+}
+
+/**
+ * Assemble n'importe quelle couche locale — relief, override de biome — avec
+ * le même arrondi que le relief : une forêt forcée par le MJ reste alignée
+ * sur la colline où il l'a peinte.
+ */
+export function assembleLayerWorld<T extends Float32Array | Uint8Array>(
+  size: RasterSize,
+  local: T,
+  cfg: RingConfig,
+  tDays: number,
+  out: T,
+): T {
   const { width, height } = size;
 
   for (let y = 0; y < height; y += 1) {
@@ -37,7 +52,7 @@ export function assembleHeightWorld(
 
     // Une cellule affichée en x vient de la colonne locale x - shift.
     for (let x = 0; x < width; x += 1) {
-      out[row + x] = heightLocal[row + wrapX(x - shift, width)]!;
+      out[row + x] = local[row + wrapX(x - shift, width)]!;
     }
   }
 
