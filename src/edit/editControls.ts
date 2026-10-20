@@ -29,7 +29,14 @@ import { findRoadPath } from '@/gen/roadPath';
 import { hashSeed } from '@/gen/rng';
 import { columnOfLon, rowOfLat } from '@/model/coords';
 import { ringOf, type RingConfig } from '@/model/ring';
-import { screenToLocal, screenToWorld, type Viewport } from '@/model/viewport';
+import {
+  rectFromCorners,
+  screenToLocal,
+  screenToWorld,
+  type GeoPoint,
+  type Viewport,
+  type WorldRect,
+} from '@/model/viewport';
 import type { Place, RoadKind } from '@/model/world';
 import type { Tool } from '@/store/editStore';
 
@@ -55,6 +62,8 @@ export interface EditContext {
   readonly onDraftRoad: (points: readonly Point[]) => void;
   /** Lieu ouvert dans l'inspecteur, ou aucun. */
   readonly onSelectPlace: (id: string | undefined) => void;
+  /** Cadre d'export tracé à la souris, en référentiel monde. */
+  readonly onExportRect: (rect: WorldRect) => void;
   /** Route ouverte dans l'inspecteur, ou aucune. */
   readonly onSelectRoad: (id: string | undefined) => void;
   /** Touche Suppr sur la carte : supprime le lieu ou la route sélectionné. */
@@ -95,6 +104,8 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
   /** Longueur du brouillon avant chaque clic : `Retour arrière` retire le dernier tronçon entier. */
   let legs: number[] = [];
   let drag: PlaceDrag | undefined;
+  /** Premier coin du cadre d'export, pendant le geste. */
+  let frameStart: GeoPoint | undefined;
 
   const screenOf = (event: PointerEvent): { x: number; y: number } => {
     const rect = element.getBoundingClientRect();
@@ -215,6 +226,15 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
       return;
     }
 
+    if (tool === 'export') {
+      // Le cadre est pris en référentiel monde : c'est ce que le MJ voit, et
+      // ce que l'export rendra à la date courante.
+      event.preventDefault();
+      element.setPointerCapture(event.pointerId);
+      frameStart = screenToWorld(context.getViewport(), screenOf(event));
+      return;
+    }
+
     if (tool === 'place') {
       event.preventDefault();
       const hit = placeUnder(event, target.places);
@@ -249,6 +269,11 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
   };
 
   const onPointerMove = (event: PointerEvent): void => {
+    if (frameStart) {
+      const corner = screenToWorld(context.getViewport(), screenOf(event));
+      context.onExportRect(rectFromCorners(frameStart, corner));
+      return;
+    }
     if (drag) {
       const target = context.getTarget();
       if (!target) return;
@@ -272,6 +297,7 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
 
   const onPointerUp = (event: PointerEvent): void => {
     if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId);
+    frameStart = undefined;
     endDrag();
     endStroke();
   };

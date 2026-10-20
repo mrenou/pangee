@@ -12,6 +12,8 @@ import {
   worldToScreen,
   zoomAtPoint,
   type Viewport,
+  rectFromCorners,
+  viewportForRect,
 } from '@/model/viewport';
 
 const base: Viewport = {
@@ -162,5 +164,29 @@ describe('screenToLocal', () => {
     const offset = cfg.rings.north.omegaDegPerDay * (tDays - cfg.t0);
     expect(world.lat).toBeGreaterThan(cfg.cutNorthLat);
     expect(local.lon).toBeCloseTo(world.lon - offset);
+  });
+});
+
+describe('cadre d export', () => {
+  it('se tend entre deux coins quel que soit l ordre du geste', () => {
+    const r = rectFromCorners({ lon: 20, lat: -10 }, { lon: 10, lat: 15 });
+    expect(r).toEqual({ lonWestWorld: 10, latNorth: 15, widthDeg: 10, heightDeg: 25 });
+  });
+
+  it('chevauche l antiméridien par le plus court chemin', () => {
+    const r = rectFromCorners({ lon: 170, lat: 0 }, { lon: -170, lat: 10 });
+    expect(r.lonWestWorld).toBe(170);
+    expect(r.widthDeg).toBeCloseTo(20);
+  });
+
+  it('donne un viewport qui couvre exactement le cadre', () => {
+    const v = viewportForRect(
+      { lonWestWorld: 170, latNorth: 10, widthDeg: 20, heightDeg: 10 },
+      2000,
+    );
+    expect(v.pixelsPerDegree).toBe(100);
+    expect(v.heightPx).toBe(1000);
+    expect(Math.abs(v.centerLonWorld)).toBeCloseTo(180);
+    expect(v.centerLat).toBe(5);
   });
 });

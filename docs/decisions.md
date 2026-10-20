@@ -155,6 +155,23 @@ recherche sur la planète entière (plusieurs centaines de ms, inutile pour reli
 
 ---
 
+## 2026-10-20 — Export PNG
+
+**Décidé.** L'export rend la scène de l'éditeur elle-même, hors écran, sur le viewport du cadre ; le
+brouillard y est un calque opaque posé au-dessus de tout. Au-delà de 1600 px de large, la scène est rendue
+sur cette largeur logique puis agrandie par la transformation du rendu. Les décorations sont dessinées en
+Canvas 2D sur l'image extraite.
+
+_Pourquoi :_ un seul moteur de dessin, donc une image identique à ce que le MJ voit ; un brouillard au-dessus
+de tout garantit que rien de caché ne filtre, libellés compris. L'agrandissement garde les ornements lisibles
+à toute taille sans réécrire chaque couche pour une échelle de rendu.
+
+_Écarté :_ un second moteur de rendu dédié à l'export (double maintenance) ; masquer le brouillard couche par
+couche (un oubli suffit à révéler un nom) ; des tailles d'ornements fixes en pixels (illisibles à 8000 px) ;
+le rendu par tuiles, gardé en réserve si le plafond de 8000 px devient gênant.
+
+---
+
 ## Points à trancher plus tard
 
 Décisions volontairement repoussées, à documenter ici quand elles seront prises :

@@ -44,6 +44,8 @@ export interface LabelLayer {
   readonly container: Container;
   setPlaces: (places: readonly Place[]) => void;
   setSelected: (id: string | undefined) => void;
+  /** Résolution des textes : agrandis à l'export, ils doivent rester nets. */
+  setTextResolution: (resolution: number) => void;
   setTime: (ringConfig: RingConfig, tDays: number) => void;
   setViewport: (viewport: Viewport) => void;
   setVisible: (visible: boolean) => void;
@@ -61,6 +63,7 @@ export function createLabelLayer(): LabelLayer {
   let places: readonly Place[] = [];
   let texts: Text[] = [];
   let selectedId: string | undefined;
+  let textResolution = 1;
   let ringConfig: RingConfig | undefined;
   let tDays = 0;
   let viewport: Viewport | undefined;
@@ -89,6 +92,7 @@ export function createLabelLayer(): LabelLayer {
     labels.removeChildren();
     texts = places.map((place) => {
       const text = new Text({ text: place.name, style: styleFor(place.size) });
+      text.resolution = textResolution;
       text.anchor.set(0, 0.5);
       text.visible = false;
       labels.addChild(text);
@@ -188,6 +192,10 @@ export function createLabelLayer(): LabelLayer {
     setSelected: (id) => {
       selectedId = id;
       draw();
+    },
+    setTextResolution: (resolution) => {
+      textResolution = resolution;
+      for (const text of texts) text.resolution = resolution;
     },
     setTime: (config, days) => {
       ringConfig = config;

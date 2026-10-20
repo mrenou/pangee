@@ -57,6 +57,12 @@ export interface SymbolLayer {
   setTime: (ringConfig: RingConfig, tDays: number) => void;
   setViewport: (viewport: Viewport) => void;
   setVisible: (visible: boolean) => void;
+  /**
+   * Mode export : un budget de symboles à la taille de l'image, et pas de
+   * texture figée, qui pourrait dépasser la taille maximale du GPU.
+   * `undefined` rend le mode écran.
+   */
+  setExportBudget: (budget: number | undefined) => void;
   destroy: () => void;
 }
 
@@ -70,6 +76,7 @@ export function createSymbolLayer(): SymbolLayer {
   let lastViewport: Viewport | undefined;
   let ringConfig: RingConfig | undefined;
   let tDays = 0;
+  let exportBudget: number | undefined;
 
   const draw = (viewport: Viewport): void => {
     // Le cache doit être levé avant de retoucher les tracés, sinon on peindrait
@@ -80,6 +87,7 @@ export function createSymbolLayer(): SymbolLayer {
 
     const { pixelsPerDegree, centerLonWorld, centerLat, widthPx, heightPx } = viewport;
     const symbolDeg = SYMBOL_PX / pixelsPerDegree;
+    const maxSymbols = exportBudget ?? MAX_SYMBOLS;
 
     const halfLon = (widthPx / 2 / pixelsPerDegree) * (1 + MARGIN);
     const halfLat = (heightPx / 2 / pixelsPerDegree) * (1 + MARGIN);
@@ -105,7 +113,7 @@ export function createSymbolLayer(): SymbolLayer {
     // de dessin par image.
     const placed: PlacedSymbol[] = [];
 
-    for (let j = fromJ; j <= toJ && drawn < MAX_SYMBOLS; j += stride) {
+    for (let j = fromJ; j <= toJ && drawn < maxSymbols; j += stride) {
       // La grille est en référentiel local : un symbole reste accroché à son
       // morceau de terrain et glisse avec son anneau. L'ancrer au référentiel
       // monde laissait le relief défiler sous un semis immobile, et les
@@ -122,7 +130,7 @@ export function createSymbolLayer(): SymbolLayer {
       const fromI = align(centerLonWorld - halfLon - offsetDeg);
       const toI = align(centerLonWorld + halfLon - offsetDeg) + stride;
 
-      for (let i = fromI; i <= toI && drawn < MAX_SYMBOLS; i += stride) {
+      for (let i = fromI; i <= toI && drawn < maxSymbols; i += stride) {
         // Position affichée : le point vit en local et suit son anneau. Le
         // terrain est lu au même endroit, les couches dérivées étant déjà en
         // référentiel monde.
@@ -208,7 +216,9 @@ export function createSymbolLayer(): SymbolLayer {
     // La résolution doit être celle de l'écran, et non celle du repère local :
     // les figures y mesurent des fractions de degré, et le cache les réduisait
     // à quelques pixels flous avant de les réétirer.
-    if (placed.length > 0) container.cacheAsTexture({ resolution: pixelsPerDegree });
+    if (placed.length > 0 && exportBudget === undefined) {
+      container.cacheAsTexture({ resolution: pixelsPerDegree });
+    }
   };
 
   const setViewport = (viewport: Viewport): void => {
@@ -261,6 +271,10 @@ export function createSymbolLayer(): SymbolLayer {
     setViewport,
     setVisible: (visible) => {
       container.visible = visible;
+    },
+    setExportBudget: (budget) => {
+      exportBudget = budget;
+      lastKey = '';
     },
     destroy: () => container.destroy({ children: true }),
   };

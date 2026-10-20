@@ -5,10 +5,29 @@
  * Voir docs/rendu.md.
  */
 
-import { Application, Geometry, Mesh, Shader, UniformGroup } from 'pixi.js';
-import { ringOffsetsDeg } from '@/model/time';
+import {
+  Application,
+  Geometry,
+  Graphics,
+  Matrix,
+  Mesh,
+  RenderTexture,
+  Shader,
+  UniformGroup,
+  type WebGLRenderer,
+} from 'pixi.js';
+import { ringOffsetsDeg, worldToLocalLon } from '@/model/time';
 import type { RingConfig as RingConfigType } from '@/model/ring';
-import { normalizeViewport, visibleSpanDeg, type Viewport } from '@/model/viewport';
+import {
+  normalizeViewport,
+  screenToWorld,
+  viewportForRect,
+  visibleSpanDeg,
+  worldToScreen,
+  type Viewport,
+  type WorldRect,
+} from '@/model/viewport';
+import { columnOfLon, rowOfLat } from '@/model/coords';
 import type { RingConfig } from '@/model/ring';
 import type { RasterSize } from '@/model/world';
 import type { RiverNetwork } from '@/hydro/rivers';
@@ -17,6 +36,8 @@ import type { Point } from '@/edit/roads';
 import { TERRAIN_FRAGMENT, TERRAIN_VERTEX } from '@/render/terrainShader';
 import { biomePaletteArray } from '@/render/palette';
 import { createFogLayer, type FogMode } from '@/render/fogLayer';
+import { drawDecorations, type ExportDecorations } from '@/render/exportDecorations';
+import { ornamentScale, planExport, terraIncognitaSpot } from '@/render/exportPlan';
 import { createLabelLayer } from '@/render/labelLayer';
 import { createRiverLayer } from '@/render/riverLayer';
 import { createRoadLayer } from '@/render/roadLayer';
@@ -38,6 +59,23 @@ export interface TerrainView {
   readonly showFaults: boolean;
   /** Habillage « carte de livre » : parchemin, hachures, teintes de biome. */
   readonly bookStyle: boolean;
+}
+
+export interface ExportRequest {
+  readonly rect: WorldRect;
+  readonly widthPx: number;
+  /** Remplacer l'inconnu par du parchemin vierge. */
+  readonly applyFog: boolean;
+  readonly showFaults: boolean;
+  readonly decorations: ExportDecorations;
+  readonly radiusKm: number;
+  /** Le brouillard tel que le store le connaît, pour placer « Terra incognita ». */
+  readonly fog: {
+    readonly size: RasterSize;
+    readonly data: Uint8Array;
+    readonly ringConfig: RingConfig;
+    readonly tDays: number;
+  };
 }
 
 export interface MapRenderer {
@@ -71,6 +109,15 @@ export interface MapRenderer {
   /** Renvoie au GPU le brouillard modifié en place par le pinceau. */
   refreshFog: () => void;
   setFogMode: (mode: FogMode) => void;
+  /** Cadre d'export en cours, tracé en pointillés sur la carte. */
+  setExportRect: (rect: WorldRect | undefined) => void;
+  /** Taille de texture maximale du GPU, pour planifier un export. */
+  maxTextureSize: () => number;
+  /**
+   * Rend le cadre hors écran, à l'échelle de l'export et non de l'écran, puis
+   * le décore. Lève une erreur lisible si l'export est trop grand.
+   */
+  exportPng: (request: ExportRequest) => Promise<Blob>;
   setWater: (
     size: RasterSize,
     waterLevel: Float32Array,
@@ -169,6 +216,15 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
   const fogLayer = createFogLayer(uniforms, geometry);
   app.stage.addChild(fogLayer.mesh);
 
+  // Le cadre d'export est un repère pour le MJ, jamais dessiné dans l'image.
+  const exportFrame = new Graphics();
+  app.stage.addChild(exportFrame);
+  let exportRect: WorldRect | undefined;
+  let fogMode: FogMode = 'off';
+  let selectedPlace: string | undefined;
+  let selectedRoad: string | undefined;
+  let draftRoad: readonly Point[] = [];
+
   const resizeMesh = (): void => {
     mesh.scale.set(app.screen.width, app.screen.height);
     fogLayer.resize(app.screen.width, app.screen.height);
@@ -207,8 +263,23 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     heightPx: app.screen.height,
   });
 
-  const setViewport = (viewport: Viewport): void => {
-    const v = normalizeViewport(viewport);
+  let screenViewport: Viewport | undefined;
+
+  const drawExportFrame = (): void => {
+    exportFrame.clear();
+    if (!exportRect || !screenViewport) return;
+    const v = screenViewport;
+    const corner = worldToScreen(v, { lon: exportRect.lonWestWorld, lat: exportRect.latNorth });
+    const w = exportRect.widthDeg * v.pixelsPerDegree;
+    const h = exportRect.heightDeg * v.pixelsPerDegree;
+    exportFrame
+      .rect(corner.x, corner.y, w, h)
+      .fill({ color: 0x8a2b1a, alpha: 0.06 })
+      .stroke({ width: 2, color: 0x8a2b1a, alpha: 0.9 });
+  };
+
+  /** Pousse un viewport à toutes les couches, sans le borner ni redessiner. */
+  const applyViewport = (v: Viewport): void => {
     const span = visibleSpanDeg(v);
     const center = uniforms.uniforms.uCenter as Float32Array;
     const viewSpan = uniforms.uniforms.uViewSpanDeg as Float32Array;
@@ -221,7 +292,107 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     riverLayer.setViewport(v);
     roadLayer.setViewport(v);
     labelLayer.setViewport(v);
+  };
+
+  const setViewport = (viewport: Viewport): void => {
+    const v = normalizeViewport(viewport);
+    screenViewport = v;
+    applyViewport(v);
+    drawExportFrame();
     invalidate();
+  };
+
+  /** Lecture du brouillard au plus proche, pour la mention « Terra incognita ». */
+  const revealedSampler =
+    (v: Viewport, fog: ExportRequest['fog']) =>
+    (xPx: number, yPx: number): number => {
+      const world = screenToWorld(v, { x: xPx, y: yPx });
+      const lonLocal = worldToLocalLon(world.lon, world.lat, fog.ringConfig, fog.tDays);
+      const x = columnOfLon(lonLocal, fog.size.width);
+      const y = rowOfLat(world.lat, fog.size.height);
+      return (fog.data[y * fog.size.width + x] ?? 0) / 255;
+    };
+
+  const maxTextureSize = (): number => {
+    const gl = (app.renderer as WebGLRenderer).gl as WebGL2RenderingContext | undefined;
+    return gl ? (gl.getParameter(gl.MAX_TEXTURE_SIZE) as number) : 4096;
+  };
+
+  const exportPng = async (request: ExportRequest): Promise<Blob> => {
+    const plan = planExport(request.rect, request.widthPx, maxTextureSize());
+    if (!plan.ok) throw new Error(plan.error);
+    const { widthPx, heightPx } = plan.value;
+    // `v` couvre l'image pixel pour pixel ; `logical` est la même vue sur une
+    // largeur réduite, que la transformation du rendu agrandit ensuite : les
+    // ornements dessinés en pixels grandissent avec l'image.
+    const v = viewportForRect(request.rect, widthPx);
+    const k = ornamentScale(widthPx);
+    const logical: Viewport = {
+      ...v,
+      pixelsPerDegree: v.pixelsPerDegree / k,
+      widthPx: widthPx / k,
+      heightPx: heightPx / k,
+    };
+
+    // On rend la scène telle quelle, à une autre échelle : tout ce qui n'est
+    // qu'un repère d'édition doit d'abord disparaître.
+    const showFaults = uniforms.uniforms.uShowFaults;
+    exportFrame.visible = false;
+    labelLayer.setSelected(undefined);
+    roadLayer.setSelected(undefined);
+    roadLayer.setDraft([]);
+    fogLayer.setMode(request.applyFog ? 'export' : 'off');
+    uniforms.uniforms.uShowFaults = request.showFaults ? 1 : 0;
+    uniforms.update();
+    mesh.scale.set(logical.widthPx, logical.heightPx);
+    fogLayer.resize(logical.widthPx, logical.heightPx);
+    // Une grille de symboles à l'espacement écran, sur toute l'image.
+    symbolLayer.setExportBudget(Math.ceil(((logical.widthPx * logical.heightPx) / 26 / 26) * 1.5));
+    labelLayer.setTextResolution(k);
+    applyViewport(logical);
+
+    const target = RenderTexture.create({ width: widthPx, height: heightPx, resolution: 1 });
+    try {
+      app.renderer.render({ container: app.stage, target, transform: new Matrix().scale(k, k) });
+      const extracted = app.renderer.extract.canvas({ target }) as HTMLCanvasElement;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = widthPx;
+      canvas.height = heightPx;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Le navigateur refuse de créer un canvas 2D pour l’export.');
+      ctx.drawImage(extracted, 0, 0);
+
+      const spot = request.applyFog
+        ? terraIncognitaSpot(
+            widthPx,
+            heightPx,
+            revealedSampler(v, request.fog),
+            Math.min(widthPx, heightPx) / 6,
+          )
+        : undefined;
+      drawDecorations(ctx, plan.value, request.rect, request.radiusKm, request.decorations, spot);
+
+      return await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) =>
+          blob ? resolve(blob) : reject(new Error('La conversion en PNG a échoué.')),
+        );
+      });
+    } finally {
+      target.destroy(true);
+      symbolLayer.setExportBudget(undefined);
+      labelLayer.setTextResolution(1);
+      uniforms.uniforms.uShowFaults = showFaults;
+      uniforms.update();
+      fogLayer.setMode(fogMode);
+      labelLayer.setSelected(selectedPlace);
+      roadLayer.setSelected(selectedRoad);
+      roadLayer.setDraft(draftRoad);
+      exportFrame.visible = true;
+      resizeMesh();
+      if (screenViewport) applyViewport(screenViewport);
+      invalidate();
+    }
   };
 
   const setView = (view: TerrainView): void => {
@@ -327,10 +498,19 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
       invalidate();
     },
     setPlaces: (next) => labelLayer.setPlaces(next),
-    setSelectedPlace: (id) => labelLayer.setSelected(id),
+    setSelectedPlace: (id) => {
+      selectedPlace = id;
+      labelLayer.setSelected(id);
+    },
     setRoads: (next) => roadLayer.setRoads(next),
-    setDraftRoad: (next) => roadLayer.setDraft(next),
-    setSelectedRoad: (id) => roadLayer.setSelected(id),
+    setDraftRoad: (next) => {
+      draftRoad = next;
+      roadLayer.setDraft(next);
+    },
+    setSelectedRoad: (id) => {
+      selectedRoad = id;
+      roadLayer.setSelected(id);
+    },
 
     refreshHeight: (region) => {
       const data = heightTexture.source.resource as Float32Array;
@@ -355,9 +535,17 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
       invalidate();
     },
     setFogMode: (mode) => {
+      fogMode = mode;
       fogLayer.setMode(mode);
       invalidate();
     },
+    setExportRect: (rect) => {
+      exportRect = rect;
+      drawExportFrame();
+      invalidate();
+    },
+    maxTextureSize,
+    exportPng,
     screenSize,
     destroy: () => {
       app.renderer.off('resize', resizeMesh);

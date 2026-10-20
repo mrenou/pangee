@@ -5,6 +5,8 @@ import { RAIN_PER_CELL, useHydroStore } from '@/store/hydroStore';
 import { attachEditControls } from '@/edit/editControls';
 import { editTarget, useEditStore } from '@/store/editStore';
 import { attachCameraControls } from '@/render/cameraControls';
+import { useExportStore, type ExportOptions } from '@/store/exportStore';
+import type { WorldRect } from '@/model/viewport';
 import { createMapRenderer, type MapRenderer } from '@/render/mapRenderer';
 
 /** Transmet au moteur les réglages qui gouvernent l'apparence de la carte. */
@@ -43,7 +45,9 @@ function pushAll(renderer: MapRenderer): void {
 
   if (world.height) renderer.setHeight(world.rasterSize, world.height);
   if (world.fog) renderer.setFog(world.fogSize, world.fog);
-  renderer.setFogMode(fogModeOf(useEditStore.getState()));
+  renderer.setFogMode(
+    fogModeOf(useEditStore.getState(), useExportStore.getState().options.applyFog),
+  );
 
   const { water } = useHydroStore.getState();
   if (water) {
@@ -67,9 +71,38 @@ function pushAll(renderer: MapRenderer): void {
   }
 }
 
-/** Le voile n'apparaît que sous l'outil brouillard, ou si le MJ l'a demandé. */
-function fogModeOf(edit: { tool: string; showFogPreview: boolean }): 'off' | 'preview' {
-  return edit.tool === 'fog' || edit.showFogPreview ? 'preview' : 'off';
+/** Assemble une demande d'export depuis l'état courant du monde. */
+function exportRequest(rect: WorldRect, options: ExportOptions) {
+  const world = useWorldStore.getState();
+  const fog = world.fog ?? new Uint8Array(world.fogSize.width * world.fogSize.height);
+  return {
+    rect,
+    widthPx: options.widthPx,
+    applyFog: options.applyFog,
+    showFaults: options.showFaults,
+    radiusKm: world.radiusKm,
+    decorations: {
+      title: options.title,
+      compass: options.compass,
+      scale: options.scale,
+      date: options.date ? `Jour ${Math.round(world.tDays)} après le Cataclysme` : '',
+      border: options.border,
+    },
+    fog: { size: world.fogSize, data: fog, ringConfig: world.ringConfig, tDays: world.tDays },
+  };
+}
+
+/**
+ * Le voile n'apparaît que sous l'outil brouillard, au cadrage d'un export qui
+ * l'appliquera, ou si le MJ l'a demandé.
+ */
+function fogModeOf(
+  edit: { tool: string; showFogPreview: boolean },
+  exportApplyFog: boolean,
+): 'off' | 'preview' {
+  const shown =
+    edit.tool === 'fog' || edit.showFogPreview || (edit.tool === 'export' && exportApplyFog);
+  return shown ? 'preview' : 'off';
 }
 
 /**
@@ -138,7 +171,13 @@ export function MapCanvas() {
         onDraftRoad: (points) => created.setDraftRoad(points),
         onSelectPlace: (id) => useEditStore.getState().selectPlace(id),
         onSelectRoad: (id) => useEditStore.getState().selectRoad(id),
+        onExportRect: (rect) => useExportStore.getState().setRect(rect),
         onDeleteSelection: () => useEditStore.getState().deleteSelection(),
+      });
+
+      useExportStore.getState().setExporter({
+        maxTextureSize: () => created.maxTextureSize(),
+        exportPng: (rect, options) => created.exportPng(exportRequest(rect, options)),
       });
 
       const syncSize = (): void => {
@@ -169,6 +208,7 @@ export function MapCanvas() {
       cancelled = true;
       observer?.disconnect();
       edits?.destroy();
+      useExportStore.getState().setExporter(undefined);
       controls?.destroy();
       renderer?.destroy();
       rendererRef.current = null;
@@ -194,6 +234,12 @@ export function MapCanvas() {
     rendererRef.current?.setSelectedPlace(tool === 'place' ? selectedPlaceId : undefined);
   }, [tool, selectedPlaceId]);
 
+  // Le cadre d'export ne se montre que sous son outil.
+  const exportRect = useExportStore((s) => s.rect);
+  useEffect(() => {
+    rendererRef.current?.setExportRect(tool === 'export' ? exportRect : undefined);
+  }, [tool, exportRect]);
+
   // Le pinceau réécrit le brouillard en place ; seuls un nouveau monde et
   // une annulation imposent de le renvoyer.
   const fogVersion = useWorldStore((s) => s.fogVersion);
@@ -203,9 +249,10 @@ export function MapCanvas() {
   }, [fogVersion]);
 
   const showFogPreview = useEditStore((s) => s.showFogPreview);
+  const exportApplyFog = useExportStore((s) => s.options.applyFog);
   useEffect(() => {
-    rendererRef.current?.setFogMode(fogModeOf({ tool, showFogPreview }));
-  }, [tool, showFogPreview]);
+    rendererRef.current?.setFogMode(fogModeOf({ tool, showFogPreview }, exportApplyFog));
+  }, [tool, showFogPreview, exportApplyFog]);
 
   const selectedRoadId = useEditStore((s) => s.selectedRoadId);
   useEffect(() => {
