@@ -41,6 +41,7 @@ import { ornamentScale, planExport, terraIncognitaSpot } from '@/render/exportPl
 import { createLabelLayer } from '@/render/labelLayer';
 import { createRiverLayer } from '@/render/riverLayer';
 import { createRoadLayer } from '@/render/roadLayer';
+import { createVolcanoLayer } from '@/render/volcanoLayer';
 import { uploadRegion, type SubImageRegion } from '@/render/textureUpdate';
 import { createSymbolLayer, type TerrainSample } from '@/render/symbolLayer';
 import {
@@ -217,6 +218,11 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
   const labelLayer = createLabelLayer();
   app.stage.addChild(labelLayer.container);
 
+  // Les panaches montent au-dessus des icônes, sous le brouillard : à l'export,
+  // un volcan inconnu ne doit pas se trahir par sa fumée.
+  const volcanoLayer = createVolcanoLayer();
+  app.stage.addChild(volcanoLayer.container);
+
   // Le brouillard recouvre tout, libellés compris : à l'export, rien de ce qui
   // est caché ne doit transparaître.
   const fogLayer = createFogLayer(uniforms, geometry);
@@ -279,6 +285,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     uniforms.uniforms.uTimeS = animationTimeS;
     uniforms.update();
     riverLayer.setAnimationTime(animationTimeS);
+    volcanoLayer.setAnimationTime(animationTimeS);
   };
   let animated = false;
   const setAnimated = (next: boolean): void => {
@@ -293,6 +300,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     uniforms.uniforms.uTimeS = 0;
     uniforms.update();
     riverLayer.setAnimationTime(undefined);
+    volcanoLayer.setAnimationTime(undefined);
     invalidate();
   };
 
@@ -323,6 +331,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     riverLayer.setViewport(v);
     roadLayer.setViewport(v);
     labelLayer.setViewport(v);
+    volcanoLayer.setViewport(v);
   };
 
   const setViewport = (viewport: Viewport): void => {
@@ -443,6 +452,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     uniforms.uniforms.uStyle = view.bookStyle ? 1 : 0;
     symbolLayer.setVisible(view.bookStyle);
     labelLayer.setTime(view.ringConfig, view.tDays);
+    volcanoLayer.setTime(view.ringConfig, view.tDays);
     roadLayer.setTime(view.ringConfig, view.tDays);
     symbolLayer.setTime(view.ringConfig, view.tDays);
     riverLayer.setTime(view.ringConfig, view.tDays);
@@ -528,7 +538,10 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
       symbolLayer.setTerrain(next);
       invalidate();
     },
-    setPlaces: (next) => labelLayer.setPlaces(next),
+    setPlaces: (next) => {
+      labelLayer.setPlaces(next);
+      volcanoLayer.setPlaces(next);
+    },
     setSelectedPlace: (id) => {
       selectedPlace = id;
       labelLayer.setSelected(id);
@@ -586,6 +599,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
       roadLayer.destroy();
       symbolLayer.destroy();
       labelLayer.destroy();
+      volcanoLayer.destroy();
 
       // L'application d'abord, les textures ensuite : les libérer tant que le
       // shader les référence encore laisse un groupe de liaison invalide, et
