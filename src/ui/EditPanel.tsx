@@ -3,12 +3,17 @@ import { Biome } from '@/climate';
 import { useEditStore, type Tool } from '@/store/editStore';
 import { useWorldStore } from '@/store/worldStore';
 import { Field } from '@/ui/Field';
+import { PlaceInspector } from '@/ui/PlaceInspector';
 
 const TOOLS: readonly { readonly id: Tool; readonly label: string; readonly hint: string }[] = [
   { id: 'pan', label: 'Déplacer', hint: 'Glisser pour déplacer la carte' },
   { id: 'relief', label: 'Relief', hint: 'Sculpter le terrain' },
   { id: 'biome', label: 'Biome', hint: 'Forcer un biome' },
-  { id: 'place', label: 'Lieu', hint: 'Poser un lieu' },
+  {
+    id: 'place',
+    label: 'Lieu',
+    hint: 'Cliquer pour poser un lieu, ou ouvrir celui qui est dessous',
+  },
   { id: 'road', label: 'Route', hint: 'Tracer une route, double-clic pour finir' },
 ];
 
@@ -175,6 +180,8 @@ export function EditPanel() {
           />
         </div>
       )}
+
+      {tool === 'place' && <PlaceInspector />}
 
       <div className="mt-3 flex gap-1">
         <button

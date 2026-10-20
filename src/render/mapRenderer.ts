@@ -50,6 +50,8 @@ export interface MapRenderer {
   setTerrainSample: (sample: TerrainSample) => void;
   /** Lieux à nommer, en référentiel local. */
   setPlaces: (places: readonly Place[]) => void;
+  /** Lieu ouvert dans l'inspecteur, cerclé sur la carte. */
+  setSelectedPlace: (id: string | undefined) => void;
   /** Routes, en référentiel local. */
   setRoads: (roads: readonly Road[]) => void;
   /** Tracé en cours, pas encore validé. */
@@ -310,6 +312,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
       invalidate();
     },
     setPlaces: (next) => labelLayer.setPlaces(next),
+    setSelectedPlace: (id) => labelLayer.setSelected(id),
     setRoads: (next) => roadLayer.setRoads(next),
     setDraftRoad: (next) => roadLayer.setDraft(next),
 

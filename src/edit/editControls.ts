@@ -15,12 +15,13 @@ import {
   type EditTarget,
 } from '@/edit/history';
 import { GestureRecorder } from '@/edit/patch';
+import { movePlace, placeAtWorld } from '@/edit/places';
 import { buildRoads, snapToPlace, type Point } from '@/edit/roads';
 import { nameForPlace } from '@/gen/names';
 import { hashSeed } from '@/gen/rng';
 import { columnOfLon, rowOfLat } from '@/model/coords';
 import { ringOf, type RingConfig } from '@/model/ring';
-import { screenToLocal, type Viewport } from '@/model/viewport';
+import { screenToLocal, screenToWorld, type Viewport } from '@/model/viewport';
 import type { Place } from '@/model/world';
 import type { Tool } from '@/store/editStore';
 
@@ -38,6 +39,10 @@ export interface EditContext {
   readonly onCommand: (command: Command) => void;
   /** Tracé en cours, pour que le rendu puisse l'afficher. */
   readonly onDraftRoad: (points: readonly Point[]) => void;
+  /** Lieu ouvert dans l'inspecteur, ou aucun. */
+  readonly onSelectPlace: (id: string | undefined) => void;
+  /** Touche Suppr sur la carte, outil lieu actif. */
+  readonly onDeleteSelection: () => void;
 }
 
 export interface EditControls {
@@ -49,18 +54,54 @@ export interface EditControls {
 /** Distance d'accrochage aux lieux, en pixels écran. */
 const SNAP_PX = 12;
 
+/** Lieu saisi à la souris : la liste d'avant le geste fait le `before` de la commande. */
+interface PlaceDrag {
+  readonly id: string;
+  readonly before: readonly Place[];
+  moved: boolean;
+}
+
+/** Une frappe dans un champ de saisie ne doit jamais supprimer un lieu. */
+function isTyping(event: KeyboardEvent): boolean {
+  const target = event.target;
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  );
+}
+
 export function attachEditControls(element: HTMLElement, context: EditContext): EditControls {
   let painting = false;
   let recorder: GestureRecorder | undefined;
   let draft: Point[] = [];
+  let drag: PlaceDrag | undefined;
 
-  const localAt = (event: PointerEvent): { lon: number; lat: number } => {
+  const screenOf = (event: PointerEvent): { x: number; y: number } => {
     const rect = element.getBoundingClientRect();
-    return screenToLocal(
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  };
+
+  const localAt = (event: PointerEvent): { lon: number; lat: number } =>
+    screenToLocal(
       context.getViewport(),
-      { x: event.clientX - rect.left, y: event.clientY - rect.top },
+      screenOf(event),
       context.getRingConfig(),
       context.getTDays(),
+    );
+
+  /** Lieu affiché sous le curseur, à quelques pixels près. */
+  const placeUnder = (event: PointerEvent, places: readonly Place[]): Place | undefined => {
+    const viewport = context.getViewport();
+    const world = screenToWorld(viewport, screenOf(event));
+    return placeAtWorld(
+      world.lon,
+      world.lat,
+      places,
+      context.getRingConfig(),
+      context.getTDays(),
+      SNAP_PX / viewport.pixelsPerDegree,
     );
   };
 
@@ -131,7 +172,15 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
 
     if (tool === 'place') {
       event.preventDefault();
-      addPlace(context, localAt(event));
+      const hit = placeUnder(event, target.places);
+      if (hit) {
+        // Saisir un lieu l'ouvre dans l'inspecteur ; le glisser le déplace.
+        context.onSelectPlace(hit.id);
+        element.setPointerCapture(event.pointerId);
+        drag = { id: hit.id, before: target.places, moved: false };
+      } else {
+        context.onSelectPlace(addPlace(context, localAt(event)));
+      }
       return;
     }
 
@@ -144,12 +193,30 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
   };
 
   const onPointerMove = (event: PointerEvent): void => {
+    if (drag) {
+      const target = context.getTarget();
+      if (!target) return;
+      const { lon, lat } = localAt(event);
+      // Aperçu au fil du geste ; la commande ne sera empilée qu'au lâcher.
+      target.places = movePlace(drag.before, drag.id, lon, lat, context.getRingConfig());
+      drag.moved = true;
+      return;
+    }
     if (!painting) return;
     paintAt(event);
   };
 
+  const endDrag = (): void => {
+    const target = context.getTarget();
+    if (drag?.moved && target) {
+      context.onCommand(placesCommand('lieu déplacé', drag.before, target.places));
+    }
+    drag = undefined;
+  };
+
   const onPointerUp = (event: PointerEvent): void => {
     if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId);
+    endDrag();
     endStroke();
   };
 
@@ -181,6 +248,14 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
 
   const onKeyDown = (event: KeyboardEvent): void => {
     if (event.key === 'Escape' && context.getTool() === 'road') finishRoad();
+    if (
+      (event.key === 'Delete' || event.key === 'Backspace') &&
+      context.getTool() === 'place' &&
+      !isTyping(event)
+    ) {
+      event.preventDefault();
+      context.onDeleteSelection();
+    }
   };
 
   element.addEventListener('pointerdown', onPointerDown);
@@ -213,9 +288,10 @@ function snapPoint(context: EditContext, local: { lon: number; lat: number }): P
   return place ? [place.lon, place.lat] : [local.lon, local.lat];
 }
 
-function addPlace(context: EditContext, local: { lon: number; lat: number }): void {
+/** Pose un lieu et renvoie son identifiant. */
+function addPlace(context: EditContext, local: { lon: number; lat: number }): string | undefined {
   const target = context.getTarget();
-  if (!target) return;
+  if (!target) return undefined;
 
   // L'anneau n'est jamais choisi par le MJ : il découle de la latitude.
   const ringId = ringOf(local.lat, context.getRingConfig());
@@ -235,4 +311,5 @@ function addPlace(context: EditContext, local: { lon: number; lat: number }): vo
   const command = placesCommand('lieu posé', before, [...before, place]);
   command.apply(target);
   context.onCommand(command);
+  return id;
 }

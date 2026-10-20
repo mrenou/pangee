@@ -36,6 +36,8 @@ function pushAll(renderer: MapRenderer): void {
   pushView(renderer);
   renderer.setViewport(useViewportStore.getState().viewport);
   renderer.setPlaces(world.places);
+  const { tool, selectedPlaceId } = useEditStore.getState();
+  renderer.setSelectedPlace(tool === 'place' ? selectedPlaceId : undefined);
   renderer.setRoads(world.roads);
 
   if (world.height) renderer.setHeight(world.rasterSize, world.height);
@@ -117,6 +119,8 @@ export function MapCanvas() {
           useWorldStore.getState().scheduleAutosave();
         },
         onDraftRoad: (points) => created.setDraftRoad(points),
+        onSelectPlace: (id) => useEditStore.getState().selectPlace(id),
+        onDeleteSelection: () => useEditStore.getState().deleteSelectedPlace(),
       });
 
       const syncSize = (): void => {
@@ -164,6 +168,13 @@ export function MapCanvas() {
   useEffect(() => {
     rendererRef.current?.setPlaces(places);
   }, [places]);
+
+  // Le cercle de sélection n'a de sens que sous l'outil qui permet de retoucher.
+  const tool = useEditStore((s) => s.tool);
+  const selectedPlaceId = useEditStore((s) => s.selectedPlaceId);
+  useEffect(() => {
+    rendererRef.current?.setSelectedPlace(tool === 'place' ? selectedPlaceId : undefined);
+  }, [tool, selectedPlaceId]);
 
   const roads = useWorldStore((s) => s.roads);
   useEffect(() => {
