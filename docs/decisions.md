@@ -141,6 +141,20 @@ Prises dans la foulée du cadrage, moins structurantes mais qui engagent le code
 
 ---
 
+## 2026-10-20 — Tracé des routes suivant le relief
+
+**Décidé.** L'A* des routes vit dans `src/gen/roadPath.ts` et tourne sur le thread principal, au clic, dans
+une fenêtre bornée à 600 000 cellules (moins de 100 ms en 2048×1024). Il évite la mer mais pas les lacs.
+
+_Pourquoi :_ un seul coût pour l'option « suivre le relief » de l'éditeur et pour le futur réseau routier
+généré ; un calcul ponctuel ne justifie pas un aller-retour de worker. Les lacs sont une couche dérivée en
+référentiel monde, propre à une date, alors que la route est stockée en référentiel local.
+
+_Écarté :_ un worker dédié (latence et plomberie pour un calcul de quelques dizaines de ms) ; une
+recherche sur la planète entière (plusieurs centaines de ms, inutile pour relier deux clics).
+
+---
+
 ## Points à trancher plus tard
 
 Décisions volontairement repoussées, à documenter ici quand elles seront prises :

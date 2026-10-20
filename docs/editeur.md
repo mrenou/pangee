@@ -100,9 +100,22 @@ en longitude pris en compte), puis la polyligne est découpée en deux `Road` di
 `ringId` de leur côté. Rien n'est recalculé ensuite : à `t ≠ t0` les deux moitiés divergent et la route
 apparaît coupée à la faille.
 
-Option **suivre le relief** : un A* sur la grille locale entre les deux derniers points, coût fonction de la
-pente et pénalité sur l'eau, propose un tracé de moindre coût que le MJ accepte ou rejette. Le résultat est
-une polyligne ordinaire, éditable comme les autres.
+Option **suivre le relief** : à chaque clic, un A* sur la grille locale relie le point précédent au nouveau,
+coût fonction de la pente et pénalité sur la mer (`src/gen/roadPath.ts`, partagé avec le futur réseau
+routier de [la génération](generation.md)). Le tracé proposé s'ajoute au brouillon ; `Retour arrière` retire le dernier
+tronçon entier, c'est ainsi qu'on le rejette. Le résultat est une polyligne ordinaire, éditable comme les
+autres.
+
+| Paramètre             | Valeur                                                                           |
+| --------------------- | -------------------------------------------------------------------------------- |
+| Voisinage             | 8 voisins, pas en km selon la latitude de la ligne                               |
+| Coût d'un pas         | `km · (1 + 150 · pente)`, plus `30 · km` si la cellule d'arrivée est sous la mer |
+| Fenêtre               | bbox des deux points, marge `max(16, écart)` cellules, côté court du cylindre    |
+| Plafond               | 600 000 cellules ; au-delà, segment droit (≈ 60 ms pour 40° d'écart en 2048)     |
+| Points intermédiaires | centres de cellules, simplifiés à une cellule près (Douglas–Peucker)             |
+
+Seule la mer est évitée : les lacs n'existent qu'en référentiel monde, à une date donnée, alors que le tracé
+est calculé et stocké en référentiel local.
 
 ## Réglages
 

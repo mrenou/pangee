@@ -14,7 +14,11 @@ const TOOLS: readonly { readonly id: Tool; readonly label: string; readonly hint
     label: 'Lieu',
     hint: 'Cliquer pour poser un lieu, ou ouvrir celui qui est dessous',
   },
-  { id: 'road', label: 'Route', hint: 'Tracer une route, double-clic pour finir' },
+  {
+    id: 'road',
+    label: 'Route',
+    hint: 'Cliquer pour tracer, double-clic ou Échap pour finir, Retour arrière pour retirer un tronçon',
+  },
 ];
 
 const RELIEF_MODES = [
@@ -48,6 +52,8 @@ export function EditPanel() {
   const biomeShape = useEditStore((s) => s.biomeShape);
   const setBiomeShape = useEditStore((s) => s.setBiomeShape);
   const biomeValue = useEditStore((s) => s.biomeValue);
+  const roadFollowsTerrain = useEditStore((s) => s.roadFollowsTerrain);
+  const setRoadFollowsTerrain = useEditStore((s) => s.setRoadFollowsTerrain);
   const setBiomeValue = useEditStore((s) => s.setBiomeValue);
 
   const canUndo = useEditStore((s) => s.canUndo);
@@ -182,6 +188,17 @@ export function EditPanel() {
       )}
 
       {tool === 'place' && <PlaceInspector />}
+
+      {tool === 'road' && (
+        <label className="mt-3 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={roadFollowsTerrain}
+            onChange={(e) => setRoadFollowsTerrain(e.currentTarget.checked)}
+          />
+          Suivre le relief
+        </label>
+      )}
 
       <div className="mt-3 flex gap-1">
         <button

@@ -18,6 +18,7 @@ import { GestureRecorder } from '@/edit/patch';
 import { movePlace, placeAtWorld } from '@/edit/places';
 import { buildRoads, snapToPlace, type Point } from '@/edit/roads';
 import { nameForPlace } from '@/gen/names';
+import { findRoadPath } from '@/gen/roadPath';
 import { hashSeed } from '@/gen/rng';
 import { columnOfLon, rowOfLat } from '@/model/coords';
 import { ringOf, type RingConfig } from '@/model/ring';
@@ -34,6 +35,10 @@ export interface EditContext {
   readonly getRelief: () => ReliefBrush;
   readonly getBiomeShape: () => BrushShape;
   readonly getBiomeValue: () => number;
+  /** Outil route : faire suivre le relief à chaque nouveau segment. */
+  readonly getRoadFollowsTerrain: () => boolean;
+  readonly getSeaLevelM: () => number;
+  readonly getRadiusKm: () => number;
   /** Zone du raster local modifiée par le dernier pas, à téléverser. */
   readonly onRasterTouched: (layer: 'height' | 'biomeOverride') => void;
   readonly onCommand: (command: Command) => void;
@@ -76,6 +81,8 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
   let painting = false;
   let recorder: GestureRecorder | undefined;
   let draft: Point[] = [];
+  /** Longueur du brouillon avant chaque clic : `Retour arrière` retire le dernier tronçon entier. */
+  let legs: number[] = [];
   let drag: PlaceDrag | undefined;
 
   const screenOf = (event: PointerEvent): { x: number; y: number } => {
@@ -187,7 +194,8 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
     if (tool === 'road') {
       event.preventDefault();
       const point = snapPoint(context, localAt(event));
-      draft = [...draft, point];
+      legs = [...legs, draft.length];
+      draft = [...draft, ...roadLeg(context, target, draft[draft.length - 1], point)];
       context.onDraftRoad(draft);
     }
   };
@@ -223,6 +231,7 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
   const finishRoad = (): void => {
     if (draft.length < 2) {
       draft = [];
+      legs = [];
       context.onDraftRoad(draft);
       return;
     }
@@ -237,6 +246,15 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
     context.onCommand(command);
 
     draft = [];
+    legs = [];
+    context.onDraftRoad(draft);
+  };
+
+  /** Retire le dernier tronçon du brouillon : c'est ainsi qu'on rejette un tracé proposé. */
+  const dropLastLeg = (): void => {
+    const length = legs.pop();
+    if (length === undefined) return;
+    draft = draft.slice(0, length);
     context.onDraftRoad(draft);
   };
 
@@ -248,6 +266,10 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
 
   const onKeyDown = (event: KeyboardEvent): void => {
     if (event.key === 'Escape' && context.getTool() === 'road') finishRoad();
+    if (event.key === 'Backspace' && context.getTool() === 'road' && !isTyping(event)) {
+      event.preventDefault();
+      dropLastLeg();
+    }
     if (
       (event.key === 'Delete' || event.key === 'Backspace') &&
       context.getTool() === 'place' &&
@@ -276,6 +298,26 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
       window.removeEventListener('keydown', onKeyDown);
     },
   };
+}
+
+/**
+ * Points à ajouter au brouillon pour rejoindre `point`. En ligne droite, le
+ * point seul ; en suivant le relief, le tracé de moindre coût depuis le point
+ * précédent — ou la ligne droite si les deux points sont trop éloignés pour
+ * la fenêtre de recherche.
+ */
+function roadLeg(
+  context: EditContext,
+  target: EditTarget,
+  previous: Point | undefined,
+  point: Point,
+): readonly Point[] {
+  if (!previous || !context.getRoadFollowsTerrain()) return [point];
+  const path = findRoadPath(target.size, target.height, previous, point, {
+    radiusKm: context.getRadiusKm(),
+    seaLevelM: context.getSeaLevelM(),
+  });
+  return path ? path.slice(1) : [point];
 }
 
 /** Accroche le point au lieu voisin, s'il y en a un à portée. */
