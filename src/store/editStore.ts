@@ -46,6 +46,8 @@ interface EditState {
   relief: ReliefBrush;
   biomeShape: BrushShape;
   biomeValue: number;
+  /** Outil route : chaque segment suit le relief (A*) au lieu d'aller droit. */
+  roadFollowsTerrain: boolean;
   /** Lieu ouvert dans l'inspecteur. Un identifiant qui ne correspond plus à
    * aucun lieu (après une annulation, par exemple) vaut absence de sélection. */
   selectedPlaceId: string | undefined;
@@ -61,6 +63,7 @@ interface EditState {
   setRelief: (patch: Partial<ReliefBrush>) => void;
   setBiomeShape: (patch: Partial<BrushShape>) => void;
   setBiomeValue: (value: number) => void;
+  setRoadFollowsTerrain: (follow: boolean) => void;
   selectPlace: (id: string | undefined) => void;
   /** Retouche le lieu sélectionné, en une commande annulable. */
   editPlace: (edit: PlaceEdit, label: string) => void;
@@ -93,6 +96,7 @@ export const useEditStore = create<EditState>((set, get) => ({
   relief: DEFAULT_RELIEF,
   biomeShape: { radius: 10, falloff: 0 },
   biomeValue: Biome.TemperateForest,
+  roadFollowsTerrain: false,
   selectedPlaceId: undefined,
   edited: false,
   canUndo: false,
@@ -104,6 +108,7 @@ export const useEditStore = create<EditState>((set, get) => ({
   setRelief: (patch) => set((s) => ({ relief: { ...s.relief, ...patch } })),
   setBiomeShape: (patch) => set((s) => ({ biomeShape: { ...s.biomeShape, ...patch } })),
   setBiomeValue: (biomeValue) => set({ biomeValue }),
+  setRoadFollowsTerrain: (roadFollowsTerrain) => set({ roadFollowsTerrain }),
   selectPlace: (selectedPlaceId) => set({ selectedPlaceId }),
 
   editPlace: (edit, label) => {

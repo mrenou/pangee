@@ -108,6 +108,9 @@ export function MapCanvas() {
         getRelief: () => useEditStore.getState().relief,
         getBiomeShape: () => useEditStore.getState().biomeShape,
         getBiomeValue: () => useEditStore.getState().biomeValue,
+        getRoadFollowsTerrain: () => useEditStore.getState().roadFollowsTerrain,
+        getSeaLevelM: () => useWorldStore.getState().seaLevelM,
+        getRadiusKm: () => useWorldStore.getState().radiusKm,
         onRasterTouched: (layer) => {
           // Le terrain doit suivre le pinceau sans attendre : on réuploade au
           // fil du geste, l'hydrologie ne sera recalculée qu'à la fin.
