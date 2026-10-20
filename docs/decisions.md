@@ -259,6 +259,21 @@ déplacement de la carte sans éteindre le coût au repos.
 
 ---
 
+## 2026-10-20 — Import d'une carte dessinée par script
+
+**Décidé.** Une carte peinte à la main devient un monde par un script hors de l'application
+(`npm run import-image`), qui réutilise la génération pour les lieux et le tracé des routes. Voir
+[la génération](generation.md).
+
+_Pourquoi :_ la légende de couleurs dépend de l'outil de dessin du MJ et se règle au cas par cas ; un
+script se retouche en quelques lignes, une interface d'import aurait figé une légende trop tôt.
+
+_Écarté pour l'instant :_ un import d'image dans l'application, avec choix de la légende ; un réseau
+routier généré dans `src/gen/`, que le script préfigure mais que [la génération](generation.md) n'a pas
+encore.
+
+---
+
 ## Points à trancher plus tard
 
 Décisions volontairement repoussées, à documenter ici quand elles seront prises :

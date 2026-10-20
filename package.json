@@ -15,7 +15,8 @@
     "format": "prettier --write .",
     "typecheck": "tsc -b --noEmit",
     "test:e2e": "playwright test",
-    "bench": "vite-node scripts/bench-hydro.ts"
+    "bench": "vite-node scripts/bench-hydro.ts",
+    "import-image": "vite-node scripts/image-to-pangee.ts"
   },
   "dependencies": {
     "comlink": "^4.4.2",

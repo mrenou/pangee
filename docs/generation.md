@@ -118,6 +118,53 @@ Le graphe est ensuite élagué : on ne garde que les arêtes qui ne sont pas dou
 
 Chaînes de Markov d'ordre 2 sur des corpus de syllabes, un corpus par culture ou par région, plus un fallback syllabaire pour les corpus courts. La seed vient de `hashSeed(seed, 'names')`, et chaque lieu tire depuis un PRNG dérivé de son propre `id`, ce qui rend un renommage individuel stable. Trois cultures, attribuées **par latitude** d'avant le Cataclysme (`cultureOfLat` : au-delà de 30°, en deçà de −30°, entre les deux) pour que les toponymes du nord, des tropiques et du sud sonnent différemment. Elles ne suivent pas les anneaux : le MJ peut en changer le découpage à tout moment, et un nom ne doit pas en dépendre. Avec le découpage par défaut, coupé à ±30°, cela revient au même. Le générateur est réutilisé par l'éditeur pour le bouton « autre nom ».
 
+## Import d'une carte dessinée
+
+`scripts/image-to-pangee.ts` part d'une carte peinte à la main plutôt que du bruit, et produit un `.pangee`
+à importer dans l'application :
+
+```bash
+npm run import-image -- carte.png monde.pangee
+```
+
+L'image est un PNG équirectangulaire (8 bits, RVB ou RVBA) couvrant toute la planète, quelle que soit sa
+taille : elle est ramenée à 2048 × 1024. Chaque couleur de la légende devient une classe de terrain ; les
+contours, hachures et anticrénelages prennent la classe majoritaire de leur voisinage.
+
+| Couleur   | Classe          | Relief                           | `biomeOverride`                                    |
+| --------- | --------------- | -------------------------------- | -------------------------------------------------- |
+| `#45b0e1` | océan           | plateau puis grands fonds        | —                                                  |
+| blanc     | glace           | inlandsis jusqu'à ~1 900 m       | `Ice`                                              |
+| `#8eda74` | plaine          | monte avec la distance à la côte | forêt tempérée, tropicale, taïga selon la latitude |
+| `#d4cdcd` | haute montagne  | crêtes jusqu'à ~4 500 m          | automatique                                        |
+| `#a5a5a5` | collines        | 1 000 à 2 000 m                  | automatique                                        |
+| `#255516` | forêt dense     | collines basses                  | forêt pluviale tropicale ou tempérée               |
+| `#3d5524` | forêt           | collines basses                  | forêt tempérée, taïga au-delà de 45°               |
+| `#4ea72e` | forêt tropicale | plaine                           | `TropicalForest`                                   |
+| `#add48d` | steppe          | plateau bas                      | `Steppe`                                           |
+| `#fdc400` | désert          | plateau bas                      | `Desert`                                           |
+| `#fbb344` | savane aride    | plateau bas                      | `Savanna`                                          |
+| `#9cccb4` | marais          | quelques mètres                  | `Marsh`                                            |
+| `#5c9cd4` | rivière ou lac  | vallée creusée, ou cuvette       | —                                                  |
+
+Étapes, toutes dans le script :
+
+1. **Relief** : distance à la côte, profondeur dans un massif (chanfrein 3-4, wrap est-ouest), bruit
+   cylindrique de détail et de crêtes, lissage des terres seules.
+2. **Eau douce** : un trait bleu creuse une vallée ; une tache dont le cœur est à plus de deux pixels et demi
+   de sa rive est un lac, creusé en cuvette de 45 m pour passer les seuils de [l'hydrologie](hydrologie.md).
+   Entre les deux, un **priority-flood à pente minimale** (0,5 m, au-delà du pas de quantification du
+   fichier) depuis la mer : aucun bassin fermé ne devient un lac que la carte ne montre pas.
+3. **Biomes** : les classes dessinées sont figées en `biomeOverride`, sans quoi la ceinture sèche des 25°
+   changerait les plaines vertes en désert. Montagnes et collines restent au climat.
+4. **Lieux** : `placePlaces`, sur une hydrologie et un climat calculés à `t0`. Chaque terre habitable, la
+   glace la séparant des autres, reçoit au moins un bourg portuaire : les îles n'ont pas les grands fleuves
+   que le placement privilégie. Les noms en double sont retirés.
+5. **Routes** : graphe de voisinage relatif entre lieux d'une même terre, tracé par `findRoadPath`, scindé
+   aux coupures. Chaque île est reliée par une `sea-route` au port le plus proche d'une autre terre.
+
+Nom du monde, graine, densité de lieux et configuration des anneaux sont des constantes en tête du script.
+
 ## Budget
 
 La génération tourne dans un Web Worker via Comlink ([architecture](architecture.md)), l'UI reste réactive et affiche une progression par étape (relief, hydrologie d'amorçage, lieux, routes, noms). Cible : quelques secondes en 2048×1024, le fBm à 7 octaves sur 2 M de cellules dominant le coût. Les rasters reviennent en transferables, jamais copiés.
