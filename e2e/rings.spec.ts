@@ -123,11 +123,14 @@ test('glisser une coupure ou une vitesse fait une seule entrée annulable', asyn
   await page.getByRole('button', { name: 'Rétablir' }).click();
   await expect(cut).toHaveValue(cutAfter);
 
-  // Au clavier, sans lâcher de souris : la commande tombe après un temps d'arrêt.
+  // Au clavier, sans lâcher de souris : la commande tombe après un temps
+  // d'arrêt. Un seul appui, pour ne pas dépendre de la cadence du runner : deux
+  // appuis séparés de plus que le délai font, à bon droit, deux commandes.
   const speed = page.locator('[id^="omega-"]').first();
   const speedBefore = await speed.inputValue();
   await speed.focus();
-  for (let i = 0; i < 5; i += 1) await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await expect(speed).not.toHaveValue(speedBefore);
   await expect(page.getByRole('button', { name: 'Annuler : vitesse d’anneau' })).toBeVisible();
   await page.getByRole('button', { name: 'Annuler : vitesse d’anneau' }).click();
   await expect(speed).toHaveValue(speedBefore);
