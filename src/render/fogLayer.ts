@@ -13,7 +13,7 @@
 import type { Geometry } from 'pixi.js';
 import { BufferImageSource, Mesh, Shader, Texture, UniformGroup } from 'pixi.js';
 import type { RasterSize } from '@/model/world';
-import { TERRAIN_VERTEX } from '@/render/terrainShader';
+import { RING_GLSL, TERRAIN_VERTEX } from '@/render/terrainShader';
 
 /** Aucun brouillard, voile d'aperçu, ou parchemin d'export. */
 export type FogMode = 'off' | 'preview' | 'export';
@@ -30,17 +30,11 @@ uniform sampler2D uFog;       // référentiel local, wrap est-ouest
 
 uniform vec2  uCenter;
 uniform vec2  uViewSpanDeg;
-uniform vec3  uRingOffsetDeg;
-uniform vec2  uCutLat;
+${RING_GLSL}
 
 uniform float uFogMode;       // 0 = rien, 1 = aperçu, 2 = export
 uniform vec2  uFogSize;
 
-float ringOffsetDeg(float lat) {
-  float north = step(uCutLat.x, lat);
-  float south = step(lat, uCutLat.y);
-  return dot(vec3(north, 1.0 - north - south, south), uRingOffsetDeg);
-}
 
 /**
  * Interpolation bilinéaire faite à la main, wrap en x compris : on ne dépend
@@ -185,6 +179,10 @@ export function createFogLayer(shared: UniformGroup, geometry: Geometry): FogLay
     },
     refresh: () => texture.source.update(),
     releaseRetired: () => {
+      // Masqué, le voile n'est pas rendu : sa liaison au shader n'est pas
+      // reconstruite, et l'ancienne texture y est encore attachée. On attend
+      // qu'il ait été dessiné une fois avec la nouvelle.
+      if (!mesh.visible) return;
       while (retired.length > 0) retired.pop()?.destroy(true);
     },
     setMode: (mode) => {

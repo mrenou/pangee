@@ -10,7 +10,7 @@ import {
   snapToPlace,
   type Point,
 } from '@/edit/roads';
-import { DEFAULT_RING_CONFIG, ringOf, type RingConfig } from '@/model/ring';
+import { DEFAULT_RING_CONFIG, ringOf, type RingConfig, threeRings } from '@/model/ring';
 import type { Place, Road } from '@/model/world';
 
 const cfg: RingConfig = DEFAULT_RING_CONFIG; // coupures à +30 et -30
@@ -48,7 +48,7 @@ describe('insertion des points de coupure', () => {
       cfg,
     );
     expect(dense).toHaveLength(3);
-    expect(dense[1]![1]).toBe(cfg.cutNorthLat);
+    expect(dense[1]![1]).toBe(cfg.cutsLat[0]!);
   });
 
   it('insère les deux coupures dans l ordre du parcours', () => {
@@ -121,8 +121,8 @@ describe('scission des routes', () => {
     );
     const south = roads[0]!;
     const north = roads[1]!;
-    expect(south.points[south.points.length - 1]![1]).toBe(cfg.cutNorthLat);
-    expect(north.points[0]![1]).toBe(cfg.cutNorthLat);
+    expect(south.points[south.points.length - 1]![1]).toBe(cfg.cutsLat[0]!);
+    expect(north.points[0]![1]).toBe(cfg.cutsLat[0]!);
   });
 
   it('fait se toucher les deux moitiés à la frontière', () => {
@@ -159,7 +159,7 @@ describe('scission des routes', () => {
     )) {
       // Le milieu de chaque portion doit bien appartenir à l'anneau annoncé.
       const middle = road.points[Math.floor(road.points.length / 2)]!;
-      const inside = road.points.find((p) => p[1] !== cfg.cutNorthLat && p[1] !== cfg.cutSouthLat);
+      const inside = road.points.find((p) => p[1] !== cfg.cutsLat[0]! && p[1] !== cfg.cutsLat[1]!);
       expect(ringOf(inside ? inside[1] : middle[1], cfg)).toBe(road.ringId);
     }
   });
@@ -202,7 +202,7 @@ describe('scission des routes', () => {
     );
     expect(roads).toHaveLength(2);
     const seam = roads[0]!.points[roads[0]!.points.length - 1]!;
-    expect(seam[1]).toBe(cfg.cutNorthLat);
+    expect(seam[1]).toBe(cfg.cutsLat[0]!);
     // L'interpolation passe par la couture : la longitude reste près de 180.
     expect(Math.abs(Math.abs(seam[0]) - 180)).toBeLessThan(5);
   });
@@ -230,11 +230,7 @@ describe('magnétisme', () => {
 describe('route sous le curseur', () => {
   const turning: RingConfig = {
     ...DEFAULT_RING_CONFIG,
-    rings: {
-      north: { id: 'north', omegaDegPerDay: 1 },
-      equator: { id: 'equator', omegaDegPerDay: 0 },
-      south: { id: 'south', omegaDegPerDay: 0 },
-    },
+    rings: threeRings({ north: 1, equator: 0, south: 0 }),
     t0: 0,
   };
   // Une route nord, de (0, 40) à (10, 40), et une route équatoriale verticale à x = 20.

@@ -20,6 +20,7 @@ import {
   History,
   creaturesCommand,
   placesCommand,
+  ringsCommand,
   rasterCommand,
   roadsCommand,
   type Command,
@@ -28,6 +29,8 @@ import {
 import { removePlace, updatePlace, type PlaceEdit } from '@/edit/places';
 import { removeRoad, setRoadKind } from '@/edit/roads';
 import { removeCreature, updateCreature, type CreatureEdit } from '@/edit/creatures';
+import { reassignToRings } from '@/edit/rings';
+import { moveCut, ringBounds, removeCut, splitRing, type RingConfig } from '@/model/ring';
 import type { CreatureKind, RoadKind } from '@/model/world';
 import { useWorldStore } from '@/store/worldStore';
 
@@ -63,6 +66,12 @@ export function editTarget(): EditTarget | undefined {
     },
     set creatures(next) {
       useWorldStore.getState().setCreatures(next);
+    },
+    get ringConfig() {
+      return useWorldStore.getState().ringConfig;
+    },
+    set ringConfig(next) {
+      useWorldStore.getState().setRingConfig(next);
     },
   };
 }
@@ -109,6 +118,15 @@ interface EditState {
   setNewCreatureKind: (kind: CreatureKind) => void;
   selectCreature: (id: string | undefined) => void;
   editCreature: (edit: CreatureEdit, label: string) => void;
+  /** Coupe un anneau en deux en son milieu, en une commande annulable. */
+  splitRing: (index: number) => void;
+  /** Supprime une coupure : les deux anneaux voisins fusionnent. Annulable. */
+  mergeAtCut: (cutIndex: number) => void;
+  /**
+   * Déplace une coupure et réaffecte lieux, routes et créatures. Réglage
+   * continu, comme les vitesses : pas une commande.
+   */
+  moveCut: (cutIndex: number, latDeg: number) => void;
   /** Supprime le lieu, la route ou la créature sélectionné, selon l'outil actif. */
   deleteSelection: () => void;
   selectPlace: (id: string | undefined) => void;
@@ -133,6 +151,26 @@ const DEFAULT_RELIEF: ReliefBrush = {
   falloff: 0.7,
   strengthM: 120,
 };
+
+/** Applique un nouveau découpage, réaffecte les objets, et empile la commande. */
+function applyRingChange(
+  target: EditTarget,
+  next: RingConfig,
+  label: string,
+  record: (command: Command) => void,
+): void {
+  const before = {
+    ringConfig: target.ringConfig,
+    places: target.places,
+    roads: target.roads,
+    creatures: target.creatures,
+  };
+  const after = { ringConfig: next, ...reassignToRings(target, next) };
+  const command = ringsCommand(label, before, after);
+  command.apply(target);
+  record(command);
+  useWorldStore.getState().scheduleAutosave();
+}
 
 function syncFlags(): Pick<EditState, 'canUndo' | 'canRedo' | 'undoLabel'> {
   return { canUndo: history.canUndo, canRedo: history.canRedo, undoLabel: history.undoLabel };
@@ -179,6 +217,32 @@ export const useEditStore = create<EditState>((set, get) => ({
   setNewRoadKind: (newRoadKind) => set({ newRoadKind }),
   selectRoad: (selectedRoadId) => set({ selectedRoadId }),
   setNewCreatureKind: (newCreatureKind) => set({ newCreatureKind }),
+
+  splitRing: (index) => {
+    const target = editTarget();
+    if (!target) return;
+    const { north, south } = ringBounds(target.ringConfig, index);
+    const next = splitRing(target.ringConfig, index, Math.round((north + south) / 2));
+    if (next) applyRingChange(target, next, 'anneau scindé', get().record);
+  },
+
+  mergeAtCut: (cutIndex) => {
+    const target = editTarget();
+    if (!target) return;
+    const next = removeCut(target.ringConfig, cutIndex);
+    if (next) applyRingChange(target, next, 'anneaux fusionnés', get().record);
+  },
+
+  moveCut: (cutIndex, latDeg) => {
+    const target = editTarget();
+    if (!target) return;
+    const next = moveCut(target.ringConfig, cutIndex, latDeg);
+    const objects = reassignToRings(target, next);
+    target.ringConfig = next;
+    target.places = objects.places;
+    target.roads = objects.roads;
+    target.creatures = objects.creatures;
+  },
   selectCreature: (selectedCreatureId) => set({ selectedCreatureId }),
 
   editCreature: (edit, label) => {

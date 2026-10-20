@@ -46,6 +46,9 @@ async function sweep(page: Page, yFraction: number): Promise<void> {
 }
 
 test('creuser le relief change les lacs que calcule le worker', async ({ page }) => {
+  // Cent vingt pas de pinceau, rendus en logiciel : la suite complète, qui tourne
+  // en parallèle, dépasse parfois la minute par défaut.
+  test.setTimeout(120_000);
   await page.goto('/');
   const version = await waitForHydro(page, 0);
   const lakesBefore = await attr(page, 'data-hydro-lakes');

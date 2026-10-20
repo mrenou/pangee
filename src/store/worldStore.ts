@@ -6,7 +6,7 @@ import {
   MAX_DEPTH_M,
   type TerrainParams,
 } from '@/gen';
-import { DEFAULT_RING_CONFIG, type RingConfig, type RingId } from '@/model/ring';
+import { DEFAULT_RING_CONFIG, updateRing, type RingConfig, type RingId } from '@/model/ring';
 import {
   DEFAULT_SETTINGS,
   RASTER_2K,
@@ -60,8 +60,14 @@ interface WorldState {
   error: string | undefined;
 
   setTDays: (tDays: number) => void;
-  setOmega: (ring: RingId, omegaDegPerDay: number) => void;
-  setCut: (which: 'north' | 'south', lat: number) => void;
+  setOmega: (ringId: RingId, omegaDegPerDay: number) => void;
+  setRingName: (ringId: RingId, name: string) => void;
+  /**
+   * Remplace la configuration des anneaux telle quelle. Scinder, fusionner ou
+   * déplacer une coupure passent par src/store/editStore, qui réaffecte aussi
+   * lieux, routes et créatures.
+   */
+  setRingConfig: (ringConfig: RingConfig) => void;
   setSeaLevel: (seaLevelM: number) => void;
   setShowFaults: (showFaults: boolean) => void;
   setBookStyle: (bookStyle: boolean) => void;
@@ -182,31 +188,18 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     get().scheduleAutosave();
   },
 
-  setOmega: (ring, omegaDegPerDay) => {
-    set((s) => ({
-      ringConfig: {
-        ...s.ringConfig,
-        rings: { ...s.ringConfig.rings, [ring]: { id: ring, omegaDegPerDay } },
-      },
-    }));
+  setOmega: (ringId, omegaDegPerDay) => {
+    set((s) => ({ ringConfig: updateRing(s.ringConfig, ringId, { omegaDegPerDay }) }));
     get().scheduleAutosave();
   },
 
-  setCut: (which, lat) => {
-    set((s) => {
-      const cutNorthLat = which === 'north' ? lat : s.ringConfig.cutNorthLat;
-      const cutSouthLat = which === 'south' ? lat : s.ringConfig.cutSouthLat;
-      // L'invariant cutSouthLat < cutNorthLat est maintenu par construction :
-      // une coupure pousse l'autre plutôt que de l'enjamber.
-      const gap = 1;
-      return {
-        ringConfig: {
-          ...s.ringConfig,
-          cutNorthLat: Math.max(cutNorthLat, cutSouthLat + gap),
-          cutSouthLat: Math.min(cutSouthLat, cutNorthLat - gap),
-        },
-      };
-    });
+  setRingName: (ringId, name) => {
+    set((s) => ({ ringConfig: updateRing(s.ringConfig, ringId, { name }) }));
+    get().scheduleAutosave();
+  },
+
+  setRingConfig: (ringConfig) => {
+    set({ ringConfig });
     get().scheduleAutosave();
   },
 

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { generateName, nameForPlace } from '@/gen/names';
+import { cultureOfLat, generateName, nameForPlace, type NameCulture } from '@/gen/names';
 import { hashSeed, mulberry32, rngFor } from '@/gen/rng';
-import { RING_IDS } from '@/model/ring';
+
+const CULTURES: readonly NameCulture[] = ['north', 'equator', 'south'];
 
 describe('toponymes', () => {
   it('produit des noms de longueur plausible', () => {
-    for (const ring of RING_IDS) {
+    for (const ring of CULTURES) {
       const rng = rngFor('pangee', 'names');
       for (let i = 0; i < 200; i += 1) {
         const name = generateName(ring, rng);
@@ -46,5 +47,14 @@ describe('toponymes', () => {
       (text.match(/[aeiouy]/gi) ?? []).length / text.length;
 
     expect(vowelRatio(sample('south'))).toBeGreaterThan(vowelRatio(sample('north')));
+  });
+});
+
+describe('cultures toponymiques', () => {
+  it('suivent la latitude, et non le découpage en anneaux', () => {
+    expect(cultureOfLat(45)).toBe('north');
+    expect(cultureOfLat(30)).toBe('equator');
+    expect(cultureOfLat(-30)).toBe('equator');
+    expect(cultureOfLat(-31)).toBe('south');
   });
 });

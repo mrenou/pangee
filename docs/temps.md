@@ -45,15 +45,10 @@ La conversion dépend de la latitude, puisqu'un degré de longitude rétrécit v
 affiche donc la vitesse **à la latitude médiane de l'anneau** :
 
 ```ts
-const midLat = (ring: RingId, cfg: RingConfig): number => {
-  switch (ring) {
-    case 'north':
-      return (cfg.cutNorthLat + 90) / 2;
-    case 'equator':
-      return (cfg.cutNorthLat + cfg.cutSouthLat) / 2;
-    case 'south':
-      return (cfg.cutSouthLat - 90) / 2;
-  }
+// Bornes de l'anneau : 90° ou la coupure au nord, la coupure ou −90° au sud.
+const midLat = (index: number, cfg: RingConfig): number => {
+  const { north, south } = ringBounds(cfg, index);
+  return (north + south) / 2;
 };
 
 const kmPerDay = (omegaDegPerDay: number, lat: number, radiusKm: number): number =>

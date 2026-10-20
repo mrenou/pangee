@@ -7,20 +7,41 @@
  */
 
 import { clampLat, DEG_TO_RAD, wrapLon } from '@/model/coords';
-import { ringOf, type RingConfig, type Ring, type RingId } from '@/model/ring';
+import {
+  ringBounds,
+  ringById,
+  ringIndexOf,
+  type Ring,
+  type RingConfig,
+  type RingId,
+} from '@/model/ring';
 
 /** Décalage en longitude de l'anneau à la date donnée : Δλ_r(t). */
 export function ringOffsetDeg(ring: Ring, tDays: number, t0: number): number {
   return wrapLon(ring.omegaDegPerDay * (tDays - t0));
 }
 
-/** Décalage de chacun des trois anneaux à la date donnée. */
-export function ringOffsetsDeg(cfg: RingConfig, tDays: number): Readonly<Record<RingId, number>> {
-  return {
-    north: ringOffsetDeg(cfg.rings.north, tDays, cfg.t0),
-    equator: ringOffsetDeg(cfg.rings.equator, tDays, cfg.t0),
-    south: ringOffsetDeg(cfg.rings.south, tDays, cfg.t0),
-  };
+/** Décalage de chaque anneau à la date donnée, dans l'ordre des anneaux. */
+export function ringOffsetsDeg(cfg: RingConfig, tDays: number): readonly number[] {
+  return cfg.rings.map((ring) => ringOffsetDeg(ring, tDays, cfg.t0));
+}
+
+/** Décalage de l'anneau auquel appartient une latitude. */
+export function offsetAtLat(latDeg: number, cfg: RingConfig, tDays: number): number {
+  return ringOffsetDeg(cfg.rings[ringIndexOf(latDeg, cfg)]!, tDays, cfg.t0);
+}
+
+/**
+ * Décalage d'un anneau désigné par son identifiant — celui que portent une
+ * route ou une créature. `fallbackLat` sert si l'identifiant est inconnu.
+ */
+export function offsetOfRing(
+  id: RingId,
+  fallbackLat: number,
+  cfg: RingConfig,
+  tDays: number,
+): number {
+  return ringOffsetDeg(ringById(cfg, id, fallbackLat), tDays, cfg.t0);
 }
 
 /** Référentiel local vers référentiel monde, à la date donnée. */
@@ -30,8 +51,7 @@ export function localToWorldLon(
   cfg: RingConfig,
   tDays: number,
 ): number {
-  const ring = cfg.rings[ringOf(latDeg, cfg)];
-  return wrapLon(lonLocal + ringOffsetDeg(ring, tDays, cfg.t0));
+  return wrapLon(lonLocal + offsetAtLat(latDeg, cfg, tDays));
 }
 
 /** Référentiel monde vers référentiel local : l'inverse exact du précédent. */
@@ -41,20 +61,13 @@ export function worldToLocalLon(
   cfg: RingConfig,
   tDays: number,
 ): number {
-  const ring = cfg.rings[ringOf(latDeg, cfg)];
-  return wrapLon(lonWorld - ringOffsetDeg(ring, tDays, cfg.t0));
+  return wrapLon(lonWorld - offsetAtLat(latDeg, cfg, tDays));
 }
 
 /** Latitude médiane d'un anneau, où l'on exprime sa vitesse en km/jour. */
-export function midLat(ring: RingId, cfg: RingConfig): number {
-  switch (ring) {
-    case 'north':
-      return (cfg.cutNorthLat + 90) / 2;
-    case 'equator':
-      return (cfg.cutNorthLat + cfg.cutSouthLat) / 2;
-    case 'south':
-      return (cfg.cutSouthLat - 90) / 2;
-  }
+export function midLat(index: number, cfg: RingConfig): number {
+  const { north, south } = ringBounds(cfg, index);
+  return (north + south) / 2;
 }
 
 /** Vitesse en kilomètres par jour d'un anneau à une latitude donnée. */

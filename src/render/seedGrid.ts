@@ -77,8 +77,8 @@ export function hashCell(i: number, j: number): number {
 }
 
 import { wrapLon } from '@/model/coords';
-import { ringOf, type RingConfig } from '@/model/ring';
-import { ringOffsetDeg } from '@/model/time';
+import type { RingConfig } from '@/model/ring';
+import { offsetAtLat } from '@/model/time';
 
 export interface SeedPoint {
   readonly lon: number;
@@ -145,6 +145,6 @@ export function keepFraction(stride: number, pixelsPerDegree: number, spacingPx:
  */
 export function seedPointInWorld(i: number, j: number, cfg: RingConfig, tDays: number): SeedPoint {
   const point = seedPoint(i, j);
-  const offset = ringOffsetDeg(cfg.rings[ringOf(point.lat, cfg)], tDays, cfg.t0);
+  const offset = offsetAtLat(point.lat, cfg, tDays);
   return { ...point, lon: wrapLon(point.lon + offset) };
 }

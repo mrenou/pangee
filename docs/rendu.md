@@ -22,8 +22,8 @@ Deux familles de textures cohabitent, et la différence structure tout le shader
 **Textures en référentiel local**, éditées par le MJ, jamais recalculées par le temps : `height` (R32F) et `biomeOverride` (R8UI). Elles sont uploadées avec `wrapS = REPEAT` (wrap est-ouest) et `wrapT = CLAMP_TO_EDGE`. Le décalage de chaque anneau à la date t est passé en **uniforme**, en unités de texture :
 
 ```ts
-// Δλ_r(t) = ω_r · (t − t0) mod 360  →  fraction de tour
-const uRingOffset = RING_ORDER.map((r) => mod360(rings[r].omegaDegPerDay * (t - t0)) / 360);
+// Δλ_r(t) = ω_r · (t − t0) mod 360, un par anneau, du nord au sud ; tableau de MAX_RINGS = 8
+const uRingOffsetDeg = cfg.rings.map((ring) => wrapLon(ring.omegaDegPerDay * (t - t0)));
 ```
 
 Conséquences, et c'est la raison du choix :
@@ -36,28 +36,29 @@ Le relief est téléversé en **`r32float`** : des mètres réels, pas une valeu
 
 **Textures en référentiel monde**, produites par le worker d'hydrologie pour la date t : `waterLevel`, `flowAcc`, `flowDir`, `lakeId`, `biome`. Elles sont déjà assemblées, donc échantillonnées **sans décalage**. Elles arrivent avec un temps de retard (debounce, voir [hydrologie](hydrologie.md)) ; le terrain glisse d'abord, l'eau suit.
 
-Le choix de l'anneau se fait **par fragment, depuis sa latitude**, comparée à `cutNorthLat` / `cutSouthLat` passées en uniformes et converties dans l'espace de texture. La frontière tombe donc exactement à la latitude de coupure, au pixel près, quel que soit le zoom — et non sur une limite de cellule du raster.
+Le choix de l'anneau se fait **par fragment, depuis sa latitude**, comparée aux coupures passées en uniformes (`uCutLat[7]`, `uCutCount`).
+Le code GLSL des anneaux (`RING_GLSL`, dans `src/render/terrainShader.ts`) est partagé par le terrain et le brouillard. La frontière tombe donc exactement à la latitude de coupure, au pixel près, quel que soit le zoom — et non sur une limite de cellule du raster.
 
 ## Extrait GLSL (illustratif)
 
 ```glsl
-uniform sampler2D uHeight;     // référentiel local, wrapS = REPEAT
-uniform sampler2D uWaterLevel; // référentiel monde, déjà assemblé
-uniform vec3  uRingOffset;     // [nord, équateur, sud], en tours (unités de texture)
-uniform vec2  uCutV;           // v des coupures nord / sud, même orientation que uHeight
+uniform sampler2D uHeight;        // référentiel local, wrapS = REPEAT
+uniform sampler2D uWaterLevel;    // référentiel monde, déjà assemblé
+uniform float uRingOffsetDeg[8];  // Δλ de chaque anneau, du nord au sud
+uniform float uCutLat[7];         // coupures, décroissantes
+uniform float uCutCount;
 
-in  vec2 vWorldUv;             // coordonnée monde du fragment : u = lon, v = lat
-out vec4 fragColor;
-
-float ringOffset(float v) {
-  float north = step(uCutV.x, v);            // v > cutNorth
-  float south = step(v, uCutV.y);            // v < cutSouth
-  float mid   = 1.0 - north - south;
-  return north * uRingOffset.x + mid * uRingOffset.y + south * uRingOffset.z;
+int ringIndex(float lat) {
+  int index = 0;
+  for (int i = 0; i < 7; i++) {
+    if (float(i) >= uCutCount) break;
+    if (lat <= uCutLat[i]) index += 1;     // une coupure appartient à l'anneau du sud
+  }
+  return index;
 }
 
 void main() {
-  float du = ringOffset(vWorldUv.y);
+  float du = uRingOffsetDeg[ringIndex(lonLat.y)] / 360.0;
   vec2  uvLocal = vec2(fract(vWorldUv.x - du), vWorldUv.y);
 
   float h     = texture(uHeight, uvLocal).r;      // local : décalé
@@ -67,7 +68,7 @@ void main() {
 }
 ```
 
-Le `step` évite une divergence de branche sur le quad. En pratique le shader échantillonne aussi `biomeOverride` en local, `biome` et `flowAcc` en monde, applique l'ombrage de relief (gradient de `h` en différences finies, en tenant compte du wrap), les hachures de côte et le grain de parchemin.
+La boucle est bornée par une constante, comme l'exige GLSL ES ; tous les fragments d'une même ligne prennent la même branche. En pratique le shader échantillonne aussi `biomeOverride` en local, `biome` et `flowAcc` en monde, applique l'ombrage de relief (gradient de `h` en différences finies, en tenant compte du wrap), les hachures de côte et le grain de parchemin.
 
 ### Le retard des couches dérivées
 

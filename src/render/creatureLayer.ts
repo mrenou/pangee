@@ -12,7 +12,7 @@ import { Container, Graphics } from 'pixi.js';
 import type { Point } from '@/edit/roads';
 import { wrapLon } from '@/model/coords';
 import type { RingConfig, RingId } from '@/model/ring';
-import { ringOffsetDeg } from '@/model/time';
+import { offsetOfRing } from '@/model/time';
 import { worldToScreen, type Viewport } from '@/model/viewport';
 import type { Creature, CreatureKind } from '@/model/world';
 import { creaturePose } from '@/render/creatureMotion';
@@ -170,8 +170,8 @@ export function createCreatureLayer(): CreatureLayer {
   let draft: readonly Point[] = [];
   let draftRing: RingId | undefined;
 
-  const offsetOf = (ringId: RingId): number =>
-    ringConfig ? ringOffsetDeg(ringConfig.rings[ringId], tDays, ringConfig.t0) : 0;
+  const offsetOf = (ringId: RingId, lat: number): number =>
+    ringConfig ? offsetOfRing(ringId, lat, ringConfig, tDays) : 0;
 
   const strokeTrajectory = (
     points: readonly Point[],
@@ -180,7 +180,7 @@ export function createCreatureLayer(): CreatureLayer {
     style: { width: number; alpha: number },
   ): void => {
     if (!viewport || points.length < 2) return;
-    const offset = offsetOf(ringId);
+    const offset = offsetOf(ringId, points[0]?.[1] ?? 0);
     const screen = points.map(([lon, lat]) =>
       worldToScreen(viewport!, { lon: wrapLon(lon + offset), lat }),
     );
@@ -226,7 +226,7 @@ export function createCreatureLayer(): CreatureLayer {
     for (const c of creatures) {
       const pose = creaturePose(c.points, c.loop, c.speedDegPerS * t);
       const p = worldToScreen(viewport, {
-        lon: wrapLon(pose.lonLocal + offsetOf(c.ringId)),
+        lon: wrapLon(pose.lonLocal + offsetOf(c.ringId, pose.lat)),
         lat: pose.lat,
       });
       if (p.x < -40 || p.y < -40 || p.x > viewport.widthPx + 40 || p.y > viewport.heightPx + 40) {

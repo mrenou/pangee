@@ -112,11 +112,11 @@ coût(a → b) = distance(a, b) * (1 + SLOPE_W * pente(a, b)² + BIOME_W * frict
 
 Le graphe est ensuite élagué : on ne garde que les arêtes qui ne sont pas doublées par un chemin sensiblement plus court passant par un tiers lieu, ce qui donne un réseau ramifié plutôt qu'un maillage complet. Le `kind` dépend des `size` reliées : `road` entre deux lieux importants, `path` sinon, `sea-route` quand le trajet le moins coûteux est maritime.
 
-**Règle des coupures** : une route qui traverse `cutNorthLat` ou `cutSouthLat` est **scindée à la création** en deux `Road`, une par anneau, chacune avec son propre `ringId`. À t ≠ `t0` les deux moitiés divergent : c'est le comportement voulu, la route est coupée par le Cataclysme. Détails dans [le modèle du monde](modele-monde.md).
+**Règle des coupures** : une route qui traverse une latitude de coupure est **scindée à la création** en deux `Road`, une par anneau, chacune avec son propre `ringId`. À t ≠ `t0` les deux moitiés divergent : c'est le comportement voulu, la route est coupée par le Cataclysme. Détails dans [le modèle du monde](modele-monde.md).
 
 ## Générateur de noms
 
-Chaînes de Markov d'ordre 2 sur des corpus de syllabes, un corpus par culture ou par région, plus un fallback syllabaire pour les corpus courts. La seed vient de `hashSeed(seed, 'names')`, et chaque lieu tire depuis un PRNG dérivé de son propre `id`, ce qui rend un renommage individuel stable. Les cultures peuvent être attribuées par anneau pour que les toponymes du nord, de l'équateur et du sud sonnent différemment. Le générateur est réutilisé par l'éditeur pour le bouton « autre nom ».
+Chaînes de Markov d'ordre 2 sur des corpus de syllabes, un corpus par culture ou par région, plus un fallback syllabaire pour les corpus courts. La seed vient de `hashSeed(seed, 'names')`, et chaque lieu tire depuis un PRNG dérivé de son propre `id`, ce qui rend un renommage individuel stable. Trois cultures, attribuées **par latitude** d'avant le Cataclysme (`cultureOfLat` : au-delà de 30°, en deçà de −30°, entre les deux) pour que les toponymes du nord, des tropiques et du sud sonnent différemment. Elles ne suivent pas les anneaux : le MJ peut en changer le découpage à tout moment, et un nom ne doit pas en dépendre. Avec le découpage par défaut, coupé à ±30°, cela revient au même. Le générateur est réutilisé par l'éditeur pour le bouton « autre nom ».
 
 ## Budget
 

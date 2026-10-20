@@ -8,7 +8,7 @@
  */
 
 import { unzipSync, zipSync } from 'fflate';
-import { RING_IDS, validateRingConfig, type RingConfig } from '@/model/ring';
+import { validateRingConfig, type RingConfig } from '@/model/ring';
 import {
   CREATURE_KINDS,
   type Creature,
@@ -17,8 +17,8 @@ import {
   type Road,
 } from '@/model/world';
 
-/** Version 2 : ajout des créatures. */
-export const FORMAT_VERSION = 2;
+/** Version 2 : ajout des créatures. Version 3 : anneaux en nombre variable. */
+export const FORMAT_VERSION = 3;
 export const APP_NAME = 'pangee';
 
 /** Plage couverte par la quantification du relief, en mètres. */
@@ -292,7 +292,7 @@ function isCreature(value: unknown): value is Creature {
     typeof c.id === 'string' &&
     typeof c.name === 'string' &&
     (CREATURE_KINDS as readonly unknown[]).includes(c.kind) &&
-    (RING_IDS as readonly unknown[]).includes(c.ringId) &&
+    typeof c.ringId === 'string' &&
     typeof c.speedDegPerS === 'number' &&
     Number.isFinite(c.speedDegPerS) &&
     typeof c.loop === 'boolean' &&
@@ -323,7 +323,43 @@ function migrate(file: WorldFile): Result<WorldFile> {
   return { ok: true, value: current };
 }
 
+/** Les trois anneaux fixes des versions 1 et 2. */
+interface LegacyRingConfig {
+  readonly cutNorthLat: number;
+  readonly cutSouthLat: number;
+  readonly rings: Readonly<
+    Record<'north' | 'equator' | 'south', { readonly omegaDegPerDay: number }>
+  >;
+  readonly t0: number;
+}
+
+const LEGACY_NAMES = {
+  north: 'Anneau nord',
+  equator: 'Anneau équatorial',
+  south: 'Anneau sud',
+} as const;
+
 const MIGRATIONS: Readonly<Record<number, (file: WorldFile) => WorldFile>> = {
   // v1 → v2 : les créatures font leur entrée, aucune n'existait.
   1: (file) => ({ ...file, formatVersion: 2, creatures: [] }),
+  // v2 → v3 : trois anneaux fixes deviennent une liste du nord au sud. Les
+  // identifiants sont conservés, si bien que lieux, routes et créatures n'ont
+  // rien à changer.
+  2: (file) => {
+    const legacy = file.rings as unknown as LegacyRingConfig;
+    const ids = ['north', 'equator', 'south'] as const;
+    return {
+      ...file,
+      formatVersion: 3,
+      rings: {
+        rings: ids.map((id) => ({
+          id,
+          name: LEGACY_NAMES[id],
+          omegaDegPerDay: legacy.rings[id].omegaDegPerDay,
+        })),
+        cutsLat: [legacy.cutNorthLat, legacy.cutSouthLat],
+        t0: legacy.t0,
+      },
+    };
+  },
 };

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { idx } from '@/model/coords';
-import { DEFAULT_RING_CONFIG, type RingConfig } from '@/model/ring';
+import { DEFAULT_RING_CONFIG, type RingConfig, threeRings } from '@/model/ring';
 import type { RasterSize } from '@/model/world';
 import {
   assembleHeightWorld,
@@ -255,13 +255,8 @@ describe('barrage créé par le glissement d un anneau', () => {
   // lac doit naître du seul décalage des bandes.
   const cfg: RingConfig = {
     ...DEFAULT_RING_CONFIG,
-    cutNorthLat: 30,
-    cutSouthLat: -30,
-    rings: {
-      north: { id: 'north', omegaDegPerDay: 0 },
-      equator: { id: 'equator', omegaDegPerDay: 90 },
-      south: { id: 'south', omegaDegPerDay: 0 },
-    },
+    cutsLat: [30, -30],
+    rings: threeRings({ north: 0, equator: 90, south: 0 }),
     t0: 0,
   };
 
@@ -335,11 +330,7 @@ describe('assemblage', () => {
   const size: RasterSize = { width: 8, height: 4 };
   const cfg: RingConfig = {
     ...DEFAULT_RING_CONFIG,
-    rings: {
-      north: { id: 'north', omegaDegPerDay: 45 },
-      equator: { id: 'equator', omegaDegPerDay: 0 },
-      south: { id: 'south', omegaDegPerDay: -45 },
-    },
+    rings: threeRings({ north: 45, equator: 0, south: -45 }),
   };
 
   function local(): Float32Array {

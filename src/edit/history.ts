@@ -6,7 +6,9 @@
  * Voir docs/editeur.md.
  */
 
+import type { RingConfig } from '@/model/ring';
 import type { Creature, Place, RasterSize, Road } from '@/model/world';
+import type { RingBoundObjects } from '@/edit/rings';
 import { applyPatch, patchBytes, type RasterPatch } from '@/edit/patch';
 
 /** L'état que les commandes savent modifier. */
@@ -20,6 +22,7 @@ export interface EditTarget {
   places: readonly Place[];
   roads: readonly Road[];
   creatures: readonly Creature[];
+  ringConfig: RingConfig;
 }
 
 export interface Command {
@@ -127,6 +130,32 @@ export function creaturesCommand(
     revert: (target) => {
       target.creatures = before;
     },
+  };
+}
+
+/** État complet d'un découpage en anneaux : la configuration et les objets qu'il range. */
+export interface RingState extends RingBoundObjects {
+  readonly ringConfig: RingConfig;
+}
+
+/**
+ * Scission ou fusion d'anneaux : la configuration change, et avec elle
+ * l'anneau de chaque objet. On échange les deux états entiers.
+ */
+export function ringsCommand(label: string, before: RingState, after: RingState): Command {
+  const apply = (target: EditTarget, state: RingState): void => {
+    target.ringConfig = state.ringConfig;
+    target.places = state.places;
+    target.roads = state.roads;
+    target.creatures = state.creatures;
+  };
+  return {
+    label,
+    kind: 'vector',
+    bytes:
+      (before.places.length + after.places.length + before.roads.length + after.roads.length) * 128,
+    apply: (target) => apply(target, after),
+    revert: (target) => apply(target, before),
   };
 }
 

@@ -7,6 +7,36 @@
  * qu'une écriture d'uniforme. Voir docs/rendu.md.
  */
 
+import { MAX_RINGS } from '@/model/ring';
+
+/**
+ * Anneaux en GLSL, partagé par le terrain et le brouillard.
+ *
+ * Jusqu'à MAX_RINGS anneaux, du nord au sud, séparés par uCutCount coupures.
+ * Une latitude de coupure appartient à l'anneau du sud, comme dans
+ * src/model/ring.ts : le CPU et le GPU tranchent au même endroit.
+ */
+export const RING_GLSL = /* glsl */ `
+uniform float uRingOffsetDeg[${MAX_RINGS}];      // Δλ de chaque anneau, du nord au sud
+uniform float uWaterRingOffsetDeg[${MAX_RINGS}]; // Δλ à la date où l'eau a été calculée
+uniform float uCutLat[${MAX_RINGS - 1}];         // latitudes de coupure, décroissantes
+uniform float uCutCount;
+
+int ringIndex(float lat) {
+  int index = 0;
+  for (int i = 0; i < ${MAX_RINGS - 1}; i++) {
+    if (float(i) >= uCutCount) break;
+    if (lat <= uCutLat[i]) index += 1;
+  }
+  return index;
+}
+
+/** Décalage de l'anneau auquel appartient cette latitude. */
+float ringOffsetDeg(float lat) {
+  return uRingOffsetDeg[ringIndex(lat)];
+}
+`;
+
 export const TERRAIN_VERTEX = /* glsl */ `#version 300 es
 in vec2 aPosition;
 
@@ -41,9 +71,7 @@ uniform vec2  uCenter;       // (lonWorld, lat) au centre de l'écran
 uniform vec2  uViewSpanDeg;  // étendue visible en degrés (lon, lat)
 
 // Anneaux
-uniform vec3  uRingOffsetDeg;      // Δλ pour nord, équateur, sud
-uniform vec3  uWaterRingOffsetDeg; // Δλ à la date où l'eau a été calculée
-uniform vec2  uCutLat;        // (cutNorthLat, cutSouthLat)
+${RING_GLSL}
 
 // Monde
 uniform vec2  uRasterSize;    // (width, height) du raster de relief
@@ -59,18 +87,6 @@ uniform float uTimeS;           // horloge d'animation, figée quand l'animation
 
 const float PI = 3.14159265359;
 
-/** Poids de chaque anneau pour cette latitude. Sans branche. */
-vec3 ringMix(float lat) {
-  float north = step(uCutLat.x, lat);        // lat >= cutNorth
-  float south = step(lat, uCutLat.y);        // lat <= cutSouth
-  return vec3(north, 1.0 - north - south, south);
-}
-
-/** Décalage de l'anneau auquel appartient cette latitude. */
-float ringOffsetDeg(float lat) {
-  return dot(ringMix(lat), uRingOffsetDeg);
-}
-
 /**
  * Retard des couches d'eau sur le terrain.
  *
@@ -80,7 +96,8 @@ float ringOffsetDeg(float lat) {
  * terre, et le prochain calcul corrige la forme.
  */
 float waterLagDeg(float lat) {
-  return dot(ringMix(lat), uRingOffsetDeg - uWaterRingOffsetDeg);
+  int i = ringIndex(lat);
+  return uRingOffsetDeg[i] - uWaterRingOffsetDeg[i];
 }
 
 /** Coordonnée de texture locale d'un point monde, à la date courante. */
@@ -336,8 +353,11 @@ void main() {
 
   // Trait de faille : la latitude de coupure, où le cisaillement a lieu.
   float faultWidth = max(uViewSpanDeg.y / 220.0, 0.02);
-  float fault = step(abs(lonLat.y - uCutLat.x), faultWidth)
-              + step(abs(lonLat.y - uCutLat.y), faultWidth);
+  float fault = 0.0;
+  for (int i = 0; i < ${MAX_RINGS - 1}; i++) {
+    if (float(i) >= uCutCount) break;
+    fault += step(abs(lonLat.y - uCutLat[i]), faultWidth);
+  }
   color = mix(color, vec3(0.278, 0.145, 0.106), clamp(fault, 0.0, 1.0) * 0.8 * uShowFaults);
 
   // Matière du parchemin : une fibre douce, plus des taches très basse

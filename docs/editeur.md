@@ -94,8 +94,8 @@ Tracé point à point (clic pour ajouter un point, double-clic ou `Échap` pour 
 lieux situés à quelques pixels écran : le point est alors calé exactement sur la position du lieu. Fermeture
 possible pour une boucle.
 
-**Scission automatique aux coupures, à la création.** Dès qu'un segment `[A, B]` franchit `cutNorthLat` ou
-`cutSouthLat`, un point est inséré exactement à la latitude de coupure (interpolation le long du segment, wrap
+**Scission automatique aux coupures, à la création.** Dès qu'un segment `[A, B]` franchit une latitude de
+coupure, un point est inséré exactement à la latitude de coupure (interpolation le long du segment, wrap
 en longitude pris en compte), puis la polyligne est découpée en deux `Road` distincts portant chacun le
 `ringId` de leur côté. Rien n'est recalculé ensuite : à `t ≠ t0` les deux moitiés divergent et la route
 apparaît coupée à la faille.
@@ -152,10 +152,16 @@ trajectoires ne se montrent que sous cet outil, jamais à l'export.
 
 ## Réglages
 
-Panneau monde : vitesse signée et sens par anneau (`omegaDegPerDay`, préréglage « immobile »), `cutNorthLat`
-et `cutSouthLat` avec l'invariant `cutSouthLat < cutNorthLat` vérifié à la saisie, date de campagne, `t0`,
-rayon planétaire, niveau de la mer. Aucun de ces réglages ne modifie une donnée locale : ils changent la
-fonction du temps et les couches dérivées. Voir [le temps et les anneaux](temps.md).
+Panneau monde : pour chaque anneau, du nord au sud, son nom et sa vitesse signée (`omegaDegPerDay`) ; entre
+deux anneaux, la latitude de la coupure qui les sépare, bornée entre ses voisines. Date de campagne, `t0`,
+rayon planétaire, niveau de la mer. Vitesses et coupures se règlent en continu, sans commande : elles ne
+modifient aucune donnée locale, elles changent la fonction du temps et les couches dérivées. Déplacer une
+coupure réaffecte tout de même lieux, routes et créatures à leur nouvel anneau. Voir
+[le temps et les anneaux](temps.md).
+
+**Scinder** coupe un anneau en deux en son milieu, **Fusionner** retire une coupure ; jusqu'à huit anneaux.
+Ce sont deux commandes annulables (`anneau scindé`, `anneaux fusionnés`), qui échangent la configuration
+entière et l'anneau de chaque objet. Détails dans [le modèle du monde](modele-monde.md).
 
 ## Undo / redo
 

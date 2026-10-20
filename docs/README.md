@@ -1,8 +1,8 @@
 # Documentation de Pangée
 
 Pangée est un outil web pour un maître de jeu de rôle. Sa planète médiévale-fantastique a été
-frappée d'un **Cataclysme** qui a découpé sa surface en **trois anneaux** — nord, équateur, sud —
-tournant à des vitesses et dans des sens différents. Les villes sont coupées en deux, les plages
+frappée d'un **Cataclysme** qui a découpé sa surface en **anneaux** — trois par défaut, nord, équateur,
+sud, jusqu'à huit — tournant à des vitesses et dans des sens différents. Les villes sont coupées en deux, les plages
 sont devenues des montagnes, les rivières se retrouvent barrées et forment des lacs. L'outil
 affiche ce monde en carte de roman, le fait évoluer avec la date de campagne, laisse le MJ le
 sculpter, et lui permet d'en exporter des morceaux pour ses joueurs.
@@ -33,17 +33,19 @@ Puis, par sujet :
 
 ## Glossaire
 
-**Cataclysme** — l'événement qui a fracturé la planète en trois anneaux. Il sert d'origine des
+**Cataclysme** — l'événement qui a fracturé la planète en anneaux. Il sert d'origine des
 temps : la date de campagne se compte en jours depuis le Cataclysme.
 
 **t0** — date à laquelle les anneaux sont considérés comme alignés, par défaut `0`, c'est-à-dire
 l'instant du Cataclysme. Réglable.
 
-**Anneau** (`RingId`) — l'une des trois bandes de latitude, `north`, `equator` ou `south`, chacune
-tournant à sa propre vitesse `omegaDegPerDay`, signée. Zéro signifie immobile.
+**Anneau** (`RingId`) — l'une des bandes de latitude, de une à huit, rangées du nord au sud, chacune
+tournant à sa propre vitesse `omegaDegPerDay`, signée. Zéro signifie immobile. Son identifiant est
+stable ; les trois anneaux d'origine s'appellent `north`, `equator` et `south`.
 
-**Coupure** — l'une des deux latitudes frontières entre anneaux, `cutNorthLat` et `cutSouthLat`,
-avec l'invariant `cutSouthLat < cutNorthLat`. Les frontières sont nettes, sans transition.
+**Coupure** — l'une des latitudes frontières entre deux anneaux voisins, `cutsLat`, strictement
+décroissantes. Une latitude de coupure appartient à l'anneau du sud. Les frontières sont nettes, sans
+transition.
 
 **Référentiel local** — les coordonnées du monde **tel qu'avant le Cataclysme**, anneaux alignés.
 C'est le stockage canonique : relief, biomes, brouillard, lieux et routes y vivent tous. Les
