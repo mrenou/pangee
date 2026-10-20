@@ -36,8 +36,9 @@ function pushAll(renderer: MapRenderer): void {
   pushView(renderer);
   renderer.setViewport(useViewportStore.getState().viewport);
   renderer.setPlaces(world.places);
-  const { tool, selectedPlaceId } = useEditStore.getState();
+  const { tool, selectedPlaceId, selectedRoadId } = useEditStore.getState();
   renderer.setSelectedPlace(tool === 'place' ? selectedPlaceId : undefined);
+  renderer.setSelectedRoad(tool === 'road' ? selectedRoadId : undefined);
   renderer.setRoads(world.roads);
 
   if (world.height) renderer.setHeight(world.rasterSize, world.height);
@@ -109,6 +110,7 @@ export function MapCanvas() {
         getBiomeShape: () => useEditStore.getState().biomeShape,
         getBiomeValue: () => useEditStore.getState().biomeValue,
         getRoadFollowsTerrain: () => useEditStore.getState().roadFollowsTerrain,
+        getNewRoadKind: () => useEditStore.getState().newRoadKind,
         getSeaLevelM: () => useWorldStore.getState().seaLevelM,
         getRadiusKm: () => useWorldStore.getState().radiusKm,
         onRasterTouched: (layer) => {
@@ -125,7 +127,8 @@ export function MapCanvas() {
         },
         onDraftRoad: (points) => created.setDraftRoad(points),
         onSelectPlace: (id) => useEditStore.getState().selectPlace(id),
-        onDeleteSelection: () => useEditStore.getState().deleteSelectedPlace(),
+        onSelectRoad: (id) => useEditStore.getState().selectRoad(id),
+        onDeleteSelection: () => useEditStore.getState().deleteSelection(),
       });
 
       const syncSize = (): void => {
@@ -180,6 +183,11 @@ export function MapCanvas() {
   useEffect(() => {
     rendererRef.current?.setSelectedPlace(tool === 'place' ? selectedPlaceId : undefined);
   }, [tool, selectedPlaceId]);
+
+  const selectedRoadId = useEditStore((s) => s.selectedRoadId);
+  useEffect(() => {
+    rendererRef.current?.setSelectedRoad(tool === 'road' ? selectedRoadId : undefined);
+  }, [tool, selectedRoadId]);
 
   const roads = useWorldStore((s) => s.roads);
   useEffect(() => {

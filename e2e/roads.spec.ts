@@ -32,3 +32,33 @@ test('une route suivant le relief se trace, se retouche et s annule', async ({ p
   await page.getByRole('button', { name: /Annuler : route tracée/ }).click();
   await expect(page.getByRole('button', { name: 'Annuler' })).toBeDisabled();
 });
+
+test('une route se sélectionne, change de type et se supprime', async ({ page }) => {
+  await page.goto('/');
+  await expect
+    .poll(
+      async () =>
+        Number(await page.locator('[data-hydro-version]').getAttribute('data-hydro-version')),
+      { timeout: 60_000 },
+    )
+    .toBeGreaterThan(0);
+
+  await page.getByRole('button', { name: 'Route', exact: true }).click();
+  const box = (await page.locator('canvas').boundingBox())!;
+  // Un coin de carte, loin des lieux générés qui l'emporteraient au clic.
+  await page.mouse.click(box.x + 40, box.y + 60);
+  await page.mouse.click(box.x + 200, box.y + 60);
+  await page.keyboard.press('Escape');
+
+  await page.mouse.click(box.x + 120, box.y + 62);
+  const kind = page.getByLabel('Type de la route sélectionnée');
+  await expect(kind).toHaveValue('road');
+  await kind.selectOption('path');
+  await expect(page.getByRole('button', { name: /Annuler : type de route/ })).toBeVisible();
+
+  // Suppr sur la carte : le clic retire le focus de la liste déroulante.
+  await page.mouse.click(box.x + 120, box.y + 62);
+  await page.keyboard.press('Delete');
+  await expect(page.getByRole('button', { name: /Annuler : route supprimée/ })).toBeVisible();
+  await expect(kind).toBeHidden();
+});

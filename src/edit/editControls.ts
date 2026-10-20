@@ -16,14 +16,14 @@ import {
 } from '@/edit/history';
 import { GestureRecorder } from '@/edit/patch';
 import { movePlace, placeAtWorld } from '@/edit/places';
-import { buildRoads, snapToPlace, type Point } from '@/edit/roads';
+import { buildRoads, roadAtWorld, snapToPlace, type Point } from '@/edit/roads';
 import { nameForPlace } from '@/gen/names';
 import { findRoadPath } from '@/gen/roadPath';
 import { hashSeed } from '@/gen/rng';
 import { columnOfLon, rowOfLat } from '@/model/coords';
 import { ringOf, type RingConfig } from '@/model/ring';
 import { screenToLocal, screenToWorld, type Viewport } from '@/model/viewport';
-import type { Place } from '@/model/world';
+import type { Place, RoadKind } from '@/model/world';
 import type { Tool } from '@/store/editStore';
 
 export interface EditContext {
@@ -37,6 +37,7 @@ export interface EditContext {
   readonly getBiomeValue: () => number;
   /** Outil route : faire suivre le relief à chaque nouveau segment. */
   readonly getRoadFollowsTerrain: () => boolean;
+  readonly getNewRoadKind: () => RoadKind;
   readonly getSeaLevelM: () => number;
   readonly getRadiusKm: () => number;
   /** Zone du raster local modifiée par le dernier pas, à téléverser. */
@@ -46,7 +47,9 @@ export interface EditContext {
   readonly onDraftRoad: (points: readonly Point[]) => void;
   /** Lieu ouvert dans l'inspecteur, ou aucun. */
   readonly onSelectPlace: (id: string | undefined) => void;
-  /** Touche Suppr sur la carte, outil lieu actif. */
+  /** Route ouverte dans l'inspecteur, ou aucune. */
+  readonly onSelectRoad: (id: string | undefined) => void;
+  /** Touche Suppr sur la carte : supprime le lieu ou la route sélectionné. */
   readonly onDeleteSelection: () => void;
 }
 
@@ -97,6 +100,20 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
       context.getRingConfig(),
       context.getTDays(),
     );
+
+  /** Route affichée sous le curseur, à quelques pixels près. */
+  const roadUnder = (event: PointerEvent, target: EditTarget) => {
+    const viewport = context.getViewport();
+    const world = screenToWorld(viewport, screenOf(event));
+    return roadAtWorld(
+      world.lon,
+      world.lat,
+      target.roads,
+      context.getRingConfig(),
+      context.getTDays(),
+      SNAP_PX / viewport.pixelsPerDegree,
+    );
+  };
 
   /** Lieu affiché sous le curseur, à quelques pixels près. */
   const placeUnder = (event: PointerEvent, places: readonly Place[]): Place | undefined => {
@@ -193,6 +210,16 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
 
     if (tool === 'road') {
       event.preventDefault();
+      // Hors tracé, un clic sur une route l'ouvre. Un lieu l'emporte : c'est
+      // de là que partent les routes. Maj force le début d'un tracé.
+      if (draft.length === 0 && !event.shiftKey && !placeUnder(event, target.places)) {
+        const hit = roadUnder(event, target);
+        if (hit) {
+          context.onSelectRoad(hit.id);
+          return;
+        }
+      }
+      context.onSelectRoad(undefined);
       const point = snapPoint(context, localAt(event));
       legs = [...legs, draft.length];
       draft = [...draft, ...roadLeg(context, target, draft[draft.length - 1], point)];
@@ -240,7 +267,11 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
     if (!target) return;
 
     const before = target.roads;
-    const after = [...before, ...buildRoads(draft, context.getRingConfig())];
+    // Préfixe unique : le compteur des identifiants repart de zéro à chaque
+    // chargement, alors que les routes déjà enregistrées gardent les leurs.
+    const prefix = `road-${Date.now().toString(36)}`;
+    const built = buildRoads(draft, context.getRingConfig(), context.getNewRoadKind(), prefix);
+    const after = [...before, ...built];
     const command = roadsCommand('route tracée', before, after);
     command.apply(target);
     context.onCommand(command);
@@ -266,15 +297,14 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
 
   const onKeyDown = (event: KeyboardEvent): void => {
     if (event.key === 'Escape' && context.getTool() === 'road') finishRoad();
-    if (event.key === 'Backspace' && context.getTool() === 'road' && !isTyping(event)) {
+    if (isTyping(event) || (event.key !== 'Delete' && event.key !== 'Backspace')) return;
+    const tool = context.getTool();
+    if (tool === 'road' && draft.length > 0) {
       event.preventDefault();
-      dropLastLeg();
+      if (event.key === 'Backspace') dropLastLeg();
+      return;
     }
-    if (
-      (event.key === 'Delete' || event.key === 'Backspace') &&
-      context.getTool() === 'place' &&
-      !isTyping(event)
-    ) {
+    if (tool === 'place' || tool === 'road') {
       event.preventDefault();
       context.onDeleteSelection();
     }

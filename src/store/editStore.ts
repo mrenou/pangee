@@ -9,8 +9,16 @@
 import { create } from 'zustand';
 import { Biome } from '@/climate';
 import type { BrushShape, ReliefBrush, ReliefMode } from '@/edit/brush';
-import { History, placesCommand, type Command, type EditTarget } from '@/edit/history';
+import {
+  History,
+  placesCommand,
+  roadsCommand,
+  type Command,
+  type EditTarget,
+} from '@/edit/history';
 import { removePlace, updatePlace, type PlaceEdit } from '@/edit/places';
+import { removeRoad, setRoadKind } from '@/edit/roads';
+import type { RoadKind } from '@/model/world';
 import { useWorldStore } from '@/store/worldStore';
 
 export type Tool = 'pan' | 'relief' | 'biome' | 'place' | 'road';
@@ -48,6 +56,10 @@ interface EditState {
   biomeValue: number;
   /** Outil route : chaque segment suit le relief (A*) au lieu d'aller droit. */
   roadFollowsTerrain: boolean;
+  /** Type donné aux routes tracées. */
+  newRoadKind: RoadKind;
+  /** Route ouverte dans l'inspecteur ; même règle que pour les lieux. */
+  selectedRoadId: string | undefined;
   /** Lieu ouvert dans l'inspecteur. Un identifiant qui ne correspond plus à
    * aucun lieu (après une annulation, par exemple) vaut absence de sélection. */
   selectedPlaceId: string | undefined;
@@ -64,6 +76,11 @@ interface EditState {
   setBiomeShape: (patch: Partial<BrushShape>) => void;
   setBiomeValue: (value: number) => void;
   setRoadFollowsTerrain: (follow: boolean) => void;
+  setNewRoadKind: (kind: RoadKind) => void;
+  selectRoad: (id: string | undefined) => void;
+  setSelectedRoadKind: (kind: RoadKind) => void;
+  /** Supprime le lieu ou la route sélectionné, selon l'outil actif. */
+  deleteSelection: () => void;
   selectPlace: (id: string | undefined) => void;
   /** Retouche le lieu sélectionné, en une commande annulable. */
   editPlace: (edit: PlaceEdit, label: string) => void;
@@ -97,6 +114,8 @@ export const useEditStore = create<EditState>((set, get) => ({
   biomeShape: { radius: 10, falloff: 0 },
   biomeValue: Biome.TemperateForest,
   roadFollowsTerrain: false,
+  newRoadKind: 'road',
+  selectedRoadId: undefined,
   selectedPlaceId: undefined,
   edited: false,
   canUndo: false,
@@ -109,6 +128,35 @@ export const useEditStore = create<EditState>((set, get) => ({
   setBiomeShape: (patch) => set((s) => ({ biomeShape: { ...s.biomeShape, ...patch } })),
   setBiomeValue: (biomeValue) => set({ biomeValue }),
   setRoadFollowsTerrain: (roadFollowsTerrain) => set({ roadFollowsTerrain }),
+  setNewRoadKind: (newRoadKind) => set({ newRoadKind }),
+  selectRoad: (selectedRoadId) => set({ selectedRoadId }),
+
+  setSelectedRoadKind: (kind) => {
+    const target = editTarget();
+    const id = get().selectedRoadId;
+    if (!target || id === undefined) return;
+    const before = target.roads;
+    const command = roadsCommand('type de route', before, setRoadKind(before, id, kind));
+    command.apply(target);
+    get().record(command);
+    useWorldStore.getState().scheduleAutosave();
+  },
+
+  deleteSelection: () => {
+    const { tool, selectedRoadId } = get();
+    if (tool === 'place') {
+      get().deleteSelectedPlace();
+      return;
+    }
+    const target = editTarget();
+    if (tool !== 'road' || !target || selectedRoadId === undefined) return;
+    const before = target.roads;
+    const command = roadsCommand('route supprimée', before, removeRoad(before, selectedRoadId));
+    command.apply(target);
+    get().record(command);
+    set({ selectedRoadId: undefined });
+    useWorldStore.getState().scheduleAutosave();
+  },
   selectPlace: (selectedPlaceId) => set({ selectedPlaceId }),
 
   editPlace: (edit, label) => {

@@ -9,6 +9,7 @@
 
 import { deltaLon, wrapLon } from '@/model/coords';
 import { ringOf, type RingConfig, type RingId } from '@/model/ring';
+import { ringOffsetDeg } from '@/model/time';
 import type { Place, Road, RoadKind } from '@/model/world';
 
 export type Point = readonly [number, number];
@@ -140,4 +141,59 @@ export function snapToPlace(
   }
 
   return best;
+}
+
+/**
+ * Route la plus proche d'un point du référentiel monde, dans la limite donnée.
+ *
+ * Chaque route porte un seul anneau : un seul décalage suffit à la ramener là
+ * où le MJ la voit. Les distances se mesurent en degrés, comme à l'écran, où
+ * un degré de longitude et un degré de latitude font le même nombre de pixels.
+ */
+export function roadAtWorld(
+  lonWorld: number,
+  lat: number,
+  roads: readonly Road[],
+  cfg: RingConfig,
+  tDays: number,
+  maxDeg: number,
+): Road | undefined {
+  let best: Road | undefined;
+  let bestDistance = maxDeg;
+
+  for (const road of roads) {
+    const offset = ringOffsetDeg(cfg.rings[road.ringId], tDays, cfg.t0);
+    // Points exprimés relativement au curseur, couture du méridien comprise.
+    let previous: Point | undefined;
+    for (const [lon, pointLat] of road.points) {
+      const point: Point = [deltaLon(lonWorld, lon + offset), pointLat - lat];
+      if (previous) {
+        const d = distanceToSegment(previous, point);
+        if (d <= bestDistance) {
+          bestDistance = d;
+          best = road;
+        }
+      }
+      previous = point;
+    }
+  }
+
+  return best;
+}
+
+/** Distance de l'origine au segment [a, b]. */
+function distanceToSegment(a: Point, b: Point): number {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const lengthSq = dx * dx + dy * dy;
+  const t = lengthSq === 0 ? 0 : Math.max(0, Math.min(1, -(a[0] * dx + a[1] * dy) / lengthSq));
+  return Math.hypot(a[0] + t * dx, a[1] + t * dy);
+}
+
+export function setRoadKind(roads: readonly Road[], id: string, kind: RoadKind): readonly Road[] {
+  return roads.map((road) => (road.id === id ? { ...road, kind } : road));
+}
+
+export function removeRoad(roads: readonly Road[], id: string): readonly Road[] {
+  return roads.filter((road) => road.id !== id);
 }

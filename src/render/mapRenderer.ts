@@ -54,6 +54,8 @@ export interface MapRenderer {
   setSelectedPlace: (id: string | undefined) => void;
   /** Routes, en référentiel local. */
   setRoads: (roads: readonly Road[]) => void;
+  /** Route ouverte dans l'inspecteur, soulignée sur la carte. */
+  setSelectedRoad: (id: string | undefined) => void;
   /** Tracé en cours, pas encore validé. */
   setDraftRoad: (points: readonly Point[]) => void;
   /**
@@ -315,6 +317,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     setSelectedPlace: (id) => labelLayer.setSelected(id),
     setRoads: (next) => roadLayer.setRoads(next),
     setDraftRoad: (next) => roadLayer.setDraft(next),
+    setSelectedRoad: (id) => roadLayer.setSelected(id),
 
     refreshHeight: (region) => {
       const data = heightTexture.source.resource as Float32Array;

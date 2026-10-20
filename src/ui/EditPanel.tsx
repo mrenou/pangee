@@ -4,6 +4,7 @@ import { useEditStore, type Tool } from '@/store/editStore';
 import { useWorldStore } from '@/store/worldStore';
 import { Field } from '@/ui/Field';
 import { PlaceInspector } from '@/ui/PlaceInspector';
+import { RoadInspector } from '@/ui/RoadInspector';
 
 const TOOLS: readonly { readonly id: Tool; readonly label: string; readonly hint: string }[] = [
   { id: 'pan', label: 'Déplacer', hint: 'Glisser pour déplacer la carte' },
@@ -52,8 +53,6 @@ export function EditPanel() {
   const biomeShape = useEditStore((s) => s.biomeShape);
   const setBiomeShape = useEditStore((s) => s.setBiomeShape);
   const biomeValue = useEditStore((s) => s.biomeValue);
-  const roadFollowsTerrain = useEditStore((s) => s.roadFollowsTerrain);
-  const setRoadFollowsTerrain = useEditStore((s) => s.setRoadFollowsTerrain);
   const setBiomeValue = useEditStore((s) => s.setBiomeValue);
 
   const canUndo = useEditStore((s) => s.canUndo);
@@ -188,16 +187,7 @@ export function EditPanel() {
 
       {tool === 'place' && <PlaceInspector />}
 
-      {tool === 'road' && (
-        <label className="mt-3 flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={roadFollowsTerrain}
-            onChange={(e) => setRoadFollowsTerrain(e.currentTarget.checked)}
-          />
-          Suivre le relief
-        </label>
-      )}
+      {tool === 'road' && <RoadInspector />}
 
       <div className="mt-3 flex gap-1">
         <button
