@@ -208,7 +208,8 @@ export function EditPanel() {
 export function FilePanel() {
   const inputRef = useRef<HTMLInputElement>(null);
   const exportWorld = useWorldStore((s) => s.exportWorld);
-  const importWorld = useWorldStore((s) => s.importWorld);
+  const importWorld = useEditStore((s) => s.importWorld);
+  const edited = useEditStore((s) => s.edited);
   const error = useWorldStore((s) => s.error);
 
   return (
@@ -237,8 +238,17 @@ export function FilePanel() {
         className="hidden"
         onChange={(e) => {
           const file = e.currentTarget.files?.[0];
-          if (file) void importWorld(file);
           e.currentTarget.value = '';
+          if (!file) return;
+          if (
+            edited &&
+            !window.confirm(
+              'Ce monde a été édité, importer un fichier le remplacera. Exportez-le d’abord pour le garder. Continuer ?',
+            )
+          ) {
+            return;
+          }
+          void importWorld(file);
         }}
       />
       {error !== undefined && (
