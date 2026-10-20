@@ -154,14 +154,30 @@ trajectoires ne se montrent que sous cet outil, jamais à l'export.
 
 Panneau monde : pour chaque anneau, du nord au sud, son nom et sa vitesse signée (`omegaDegPerDay`) ; entre
 deux anneaux, la latitude de la coupure qui les sépare, bornée entre ses voisines. Date de campagne, `t0`,
-rayon planétaire, niveau de la mer. Vitesses et coupures se règlent en continu, sans commande : elles ne
-modifient aucune donnée locale, elles changent la fonction du temps et les couches dérivées. Déplacer une
-coupure réaffecte tout de même lieux, routes et créatures à leur nouvel anneau. Voir
-[le temps et les anneaux](temps.md).
+rayon planétaire, niveau de la mer. Vitesses et coupures ne modifient aucune donnée locale : elles changent
+la fonction du temps et les couches dérivées. Déplacer une coupure réaffecte tout de même lieux, routes et
+créatures à leur nouvel anneau. Voir [le temps et les anneaux](temps.md).
 
 **Scinder** coupe un anneau en deux en son milieu, **Fusionner** retire une coupure ; jusqu'à huit anneaux.
 Ce sont deux commandes annulables (`anneau scindé`, `anneaux fusionnés`), qui échangent la configuration
 entière et l'anneau de chaque objet. Détails dans [le modèle du monde](modele-monde.md).
+
+**Vitesses et coupures s'annulent aussi**, un geste à la fois, comme un coup de pinceau :
+
+| Réglage                        | Commande empilée                                |
+| ------------------------------ | ----------------------------------------------- |
+| Glisser un curseur à la souris | une seule, au lâcher (écouté sur toute la page) |
+| Flèches du clavier, saisie     | une seule, après 400 ms sans retouche           |
+| Coupure                        | `coupure déplacée`                              |
+| Vitesse                        | `vitesse d’anneau`                              |
+| Les deux dans le même geste    | `anneaux réglés`                                |
+
+Le geste mémorise l'état des anneaux et des objets au premier mouvement ; chaque position intermédiaire est
+recalculée **depuis cet état**, si bien qu'une coupure qui ne fait que passer ne laisse pas de routes en
+morceaux. Revenu à son point de départ, le geste ne produit rien. Une autre commande, une annulation ou un
+rétablissement clôt d'abord le geste en suspens, pour que la pile garde l'ordre des gestes. La date, le niveau
+de la mer et les réglages d'affichage restent hors de la pile : ce sont des réglages de consultation, qu'un
+`Ctrl+Z` ne doit pas ramener à la place du dernier coup de pinceau.
 
 ## Undo / redo
 

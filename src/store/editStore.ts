@@ -25,6 +25,7 @@ import {
   roadsCommand,
   type Command,
   type EditTarget,
+  type RingState,
 } from '@/edit/history';
 import { removePlace, updatePlace, type PlaceEdit } from '@/edit/places';
 import { removeRoad, setRoadKind } from '@/edit/roads';
@@ -123,10 +124,16 @@ interface EditState {
   /** Supprime une coupure : les deux anneaux voisins fusionnent. Annulable. */
   mergeAtCut: (cutIndex: number) => void;
   /**
-   * Déplace une coupure et réaffecte lieux, routes et créatures. Réglage
-   * continu, comme les vitesses : pas une commande.
+   * Déplace une coupure et réaffecte lieux, routes et créatures. Tout un
+   * glissement du curseur ne fait qu'une commande, voir `holdRingGesture`.
    */
   moveCut: (cutIndex: number, latDeg: number) => void;
+  /** Règle la vitesse d'un anneau, coalescée comme les coupures. */
+  setRingSpeed: (ringId: string, omegaDegPerDay: number) => void;
+  /** Le MJ saisit un curseur d'anneau : le geste dure jusqu'au lâcher. */
+  holdRingGesture: () => void;
+  /** Le MJ lâche le curseur : le geste devient une commande. */
+  releaseRingGesture: () => void;
   /** Supprime le lieu, la route ou la créature sélectionné, selon l'outil actif. */
   deleteSelection: () => void;
   selectPlace: (id: string | undefined) => void;
@@ -154,6 +161,48 @@ const DEFAULT_RELIEF: ReliefBrush = {
   strengthM: 120,
 };
 
+/** État des anneaux tel qu'une commande l'échange. */
+function ringState(target: EditTarget): RingState {
+  return {
+    ringConfig: target.ringConfig,
+    places: target.places,
+    roads: target.roads,
+    creatures: target.creatures,
+  };
+}
+
+/**
+ * Réglage d'anneau en cours : l'état d'avant le premier mouvement, et le nom
+ * de la commande qu'il deviendra. Un glissement de curseur produit des
+ * dizaines de valeurs ; on n'en garde qu'une entrée de pile, comme pour un
+ * coup de pinceau.
+ */
+interface RingGesture {
+  readonly before: RingState;
+  /** Fixé par le premier réglage ; un curseur tout juste saisi n'en a pas encore. */
+  label: string | undefined;
+  /** Curseur tenu à la souris : on attend le lâcher. */
+  held: boolean;
+}
+
+let ringGesture: RingGesture | undefined;
+let ringGestureTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Délai d'inactivité qui clôt un réglage fait au clavier ou par saisie
+ * directe, sans lâcher de souris pour le signaler.
+ */
+export const RING_GESTURE_IDLE_MS = 400;
+
+/** Ouvre le geste s'il ne l'est pas déjà ; deux réglages différents se fondent en un. */
+function touchRingGesture(target: EditTarget, label: string, commit: () => void): void {
+  if (!ringGesture) ringGesture = { before: ringState(target), label, held: false };
+  else if (ringGesture.label === undefined) ringGesture.label = label;
+  else if (ringGesture.label !== label) ringGesture.label = 'anneaux réglés';
+  if (ringGestureTimer !== undefined) clearTimeout(ringGestureTimer);
+  ringGestureTimer = ringGesture.held ? undefined : setTimeout(commit, RING_GESTURE_IDLE_MS);
+}
+
 /** Applique un nouveau découpage, réaffecte les objets, et empile la commande. */
 function applyRingChange(
   target: EditTarget,
@@ -161,12 +210,7 @@ function applyRingChange(
   label: string,
   record: (command: Command) => void,
 ): void {
-  const before = {
-    ringConfig: target.ringConfig,
-    places: target.places,
-    roads: target.roads,
-    creatures: target.creatures,
-  };
+  const before = ringState(target);
   const after = { ringConfig: next, ...reassignToRings(target, next) };
   const command = ringsCommand(label, before, after);
   command.apply(target);
@@ -238,13 +282,35 @@ export const useEditStore = create<EditState>((set, get) => ({
   moveCut: (cutIndex, latDeg) => {
     const target = editTarget();
     if (!target) return;
+    touchRingGesture(target, 'coupure déplacée', flushRingGesture);
+    // On repart toujours de l'état d'avant le geste : une route coupée en
+    // chemin par une coupure qui ne fait que passer ne reste pas en morceaux.
+    const before = ringGesture!.before;
     const next = moveCut(target.ringConfig, cutIndex, latDeg);
-    const objects = reassignToRings(target, next);
+    const objects = reassignToRings(before, next);
     target.ringConfig = next;
     target.places = objects.places;
     target.roads = objects.roads;
     target.creatures = objects.creatures;
   },
+
+  setRingSpeed: (ringId, omegaDegPerDay) => {
+    const target = editTarget();
+    if (!target) return;
+    touchRingGesture(target, 'vitesse d’anneau', flushRingGesture);
+    useWorldStore.getState().setOmega(ringId, omegaDegPerDay);
+  },
+
+  holdRingGesture: () => {
+    const target = editTarget();
+    if (!target) return;
+    if (ringGestureTimer !== undefined) clearTimeout(ringGestureTimer);
+    ringGestureTimer = undefined;
+    ringGesture ??= { before: ringState(target), label: undefined, held: true };
+    ringGesture.held = true;
+  },
+
+  releaseRingGesture: () => flushRingGesture(),
   selectCreature: (selectedCreatureId) => set({ selectedCreatureId }),
 
   editCreature: (edit, label) => {
@@ -325,6 +391,9 @@ export const useEditStore = create<EditState>((set, get) => ({
   },
 
   record: (command) => {
+    // Un réglage d'anneau en suspens passe avant : l'ordre de la pile est
+    // celui des gestes.
+    flushRingGesture();
     history.push(command);
     set({ edited: true, ...syncFlags() });
   },
@@ -334,6 +403,7 @@ export const useEditStore = create<EditState>((set, get) => ({
   undo: () => {
     const target = editTarget();
     if (!target) return;
+    flushRingGesture();
     const command = history.undo(target);
     set(syncFlags());
     if (command?.kind === 'raster') useWorldStore.getState().bumpHeightVersion();
@@ -344,6 +414,7 @@ export const useEditStore = create<EditState>((set, get) => ({
   redo: () => {
     const target = editTarget();
     if (!target) return;
+    flushRingGesture();
     const command = history.redo(target);
     set(syncFlags());
     if (command?.kind === 'raster') useWorldStore.getState().bumpHeightVersion();
@@ -352,6 +423,7 @@ export const useEditStore = create<EditState>((set, get) => ({
   },
 
   resetHistory: () => {
+    discardRingGesture();
     history.clear();
     set({ edited: false, ...syncFlags() });
   },
@@ -370,3 +442,36 @@ export const useEditStore = create<EditState>((set, get) => ({
     if (await useWorldStore.getState().loadDefaultWorld()) get().resetHistory();
   },
 }));
+
+/**
+ * Clôt le réglage d'anneau en cours : s'il a changé quelque chose, il devient
+ * une commande, déjà appliquée. Sans effet s'il n'y a rien en suspens.
+ */
+function flushRingGesture(): void {
+  if (ringGestureTimer !== undefined) clearTimeout(ringGestureTimer);
+  ringGestureTimer = undefined;
+  const gesture = ringGesture;
+  ringGesture = undefined;
+  const target = editTarget();
+  if (!gesture || !target) return;
+  // Revenu à son point de départ, le geste n'a rien changé : on remet les
+  // objets d'origine plutôt que leurs copies réaffectées.
+  if (JSON.stringify(gesture.before.ringConfig) === JSON.stringify(target.ringConfig)) {
+    target.places = gesture.before.places;
+    target.roads = gesture.before.roads;
+    target.creatures = gesture.before.creatures;
+    return;
+  }
+  const after = ringState(target);
+
+  history.push(ringsCommand(gesture.label ?? 'anneaux réglés', gesture.before, after));
+  useEditStore.setState({ edited: true, ...syncFlags() });
+  useWorldStore.getState().scheduleAutosave();
+}
+
+/** Abandonne le réglage en cours sans l'empiler : le monde vient d'être remplacé. */
+function discardRingGesture(): void {
+  if (ringGestureTimer !== undefined) clearTimeout(ringGestureTimer);
+  ringGestureTimer = undefined;
+  ringGesture = undefined;
+}

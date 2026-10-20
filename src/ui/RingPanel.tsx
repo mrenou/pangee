@@ -123,14 +123,17 @@ const BUTTON_CLASS =
   'rounded border border-ink-soft/40 px-2 py-0.5 text-xs hover:bg-parchment-dark disabled:opacity-40';
 
 /**
- * Les anneaux du nord au sud, et les coupures qui les séparent. Scinder et
- * fusionner sont des commandes annulables ; vitesses et coupures se règlent en
- * continu. Voir docs/editeur.md et docs/modele-monde.md.
+ * Les anneaux du nord au sud, et les coupures qui les séparent. Tout est
+ * annulable : scinder et fusionner, mais aussi chaque glissement d'un curseur
+ * de vitesse ou de coupure, qui ne fait qu'une commande. Voir docs/editeur.md
+ * et docs/modele-monde.md.
  */
 function RingsEditor() {
   const cfg = useWorldStore((s) => s.ringConfig);
   const radiusKm = useWorldStore((s) => s.radiusKm);
-  const setOmega = useWorldStore((s) => s.setOmega);
+  const setRingSpeed = useEditStore((s) => s.setRingSpeed);
+  const holdRingGesture = useEditStore((s) => s.holdRingGesture);
+  const releaseRingGesture = useEditStore((s) => s.releaseRingGesture);
   const splitRing = useEditStore((s) => s.splitRing);
   const mergeAtCut = useEditStore((s) => s.mergeAtCut);
   const moveCut = useEditStore((s) => s.moveCut);
@@ -164,7 +167,9 @@ function RingsEditor() {
                 max={0.5}
                 step={0.001}
                 current={omega}
-                onChange={(value) => setOmega(ring.id, value)}
+                onChange={(value) => setRingSpeed(ring.id, value)}
+                onHold={holdRingGesture}
+                onRelease={releaseRingGesture}
               />
             </div>
             {cut !== undefined && (
@@ -179,6 +184,8 @@ function RingsEditor() {
                     step={1}
                     current={cut}
                     onChange={(lat) => moveCut(index, lat)}
+                    onHold={holdRingGesture}
+                    onRelease={releaseRingGesture}
                   />
                 </div>
                 <button

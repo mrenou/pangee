@@ -98,3 +98,38 @@ test('le bouton Scinder se désactive au huitième anneau', async ({ page }) => 
   await expect(page.getByText('8 anneaux sur 8 possibles.')).toBeVisible();
   for (const button of await scinder(page).all()) await expect(button).toBeDisabled();
 });
+
+test('glisser une coupure ou une vitesse fait une seule entrée annulable', async ({ page }) => {
+  await page.goto('/');
+  await waitForWorld(page);
+
+  // À la souris : saisir le curseur, le traîner, le lâcher.
+  const cut = page.locator('#cut-0');
+  const cutBefore = await cut.inputValue();
+  const box = (await cut.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i += 1) {
+    await page.mouse.move(box.x + box.width / 2 + i * 6, box.y + box.height / 2);
+  }
+  await page.mouse.up();
+  const cutAfter = await cut.inputValue();
+  expect(cutAfter).not.toBe(cutBefore);
+  await expect(page.getByRole('button', { name: 'Annuler : coupure déplacée' })).toBeVisible();
+
+  // Une seule annulation rend la coupure d'origine, pas un cran du glissement.
+  await page.getByRole('button', { name: 'Annuler : coupure déplacée' }).click();
+  await expect(cut).toHaveValue(cutBefore);
+  await page.getByRole('button', { name: 'Rétablir' }).click();
+  await expect(cut).toHaveValue(cutAfter);
+
+  // Au clavier, sans lâcher de souris : la commande tombe après un temps d'arrêt.
+  const speed = page.locator('[id^="omega-"]').first();
+  const speedBefore = await speed.inputValue();
+  await speed.focus();
+  for (let i = 0; i < 5; i += 1) await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('button', { name: 'Annuler : vitesse d’anneau' })).toBeVisible();
+  await page.getByRole('button', { name: 'Annuler : vitesse d’anneau' }).click();
+  await expect(speed).toHaveValue(speedBefore);
+  await expect(page.getByRole('button', { name: 'Annuler : coupure déplacée' })).toBeVisible();
+});
