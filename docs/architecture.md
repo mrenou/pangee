@@ -131,9 +131,19 @@ monde et qu'une régression y est invisible à l'œil nu sur une carte.
 
 ## Déploiement
 
-Build Vite, publication GitHub Pages par GitHub Actions. Aucune variable d'environnement
-sensible, aucun secret : le site est entièrement statique et fonctionne hors ligne une fois
-chargé.
+Build Vite, publication GitHub Pages par GitHub Actions, sur <https://mrenou.github.io/pangee/>.
+Aucune variable d'environnement sensible, aucun secret : le site est entièrement statique et
+fonctionne hors ligne une fois chargé.
+
+| Étape       | Où                                       | Détail                                                          |
+| ----------- | ---------------------------------------- | --------------------------------------------------------------- |
+| Vérifier    | job `verify`, `.github/workflows/ci.yml` | liens de doc, lint, Vitest, build, Playwright — à chaque PR     |
+| Publier     | job `deploy`, même fichier               | sur `main` seulement, après `verify` ; build avec `PANGEE_BASE` |
+| Sous-chemin | `vite.config.ts`                         | `base` lu dans `PANGEE_BASE`, `/` par défaut                    |
+
+Le site est servi sous `/<dépôt>/` : `PANGEE_BASE` vaut `/pangee/` au build de publication. Aucun
+en-tête HTTP particulier n'est requis — pas de `SharedArrayBuffer`, donc pas de COOP/COEP, que GitHub
+Pages ne sait pas envoyer. Un relancement manuel passe par `workflow_dispatch` sur `CI`.
 
 ## Pour aller plus loin
 
