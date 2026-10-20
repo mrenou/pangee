@@ -10,6 +10,7 @@ import {
   type FogBrush,
 } from '@/edit/brush';
 import { idx } from '@/model/coords';
+import { DEFAULT_RING_CONFIG } from '@/model/ring';
 import type { Place, RasterSize } from '@/model/world';
 
 const size: RasterSize = { width: 16, height: 8 };
@@ -24,6 +25,7 @@ function target(): EditTarget {
     places: [],
     roads: [],
     creatures: [],
+    ringConfig: DEFAULT_RING_CONFIG,
   };
 }
 

@@ -26,7 +26,7 @@ import { GestureRecorder } from '@/edit/patch';
 import { movePlace, placeAtWorld } from '@/edit/places';
 import { buildCreature, creatureAtWorld, worldToRingLocal } from '@/edit/creatures';
 import { buildRoads, roadAtWorld, snapToPlace, type Point } from '@/edit/roads';
-import { nameForPlace } from '@/gen/names';
+import { cultureOfLat, nameForPlace } from '@/gen/names';
 import { findRoadPath } from '@/gen/roadPath';
 import { hashSeed } from '@/gen/rng';
 import { columnOfLon, rowOfLat } from '@/model/coords';
@@ -501,7 +501,7 @@ function addPlace(context: EditContext, local: { lon: number; lat: number }): st
     ringId,
     lon: local.lon,
     lat: local.lat,
-    name: nameForPlace(ringId, hashSeed(id, 'names')),
+    name: nameForPlace(cultureOfLat(local.lat), hashSeed(id, 'names')),
     kind: 'town',
     size: 2,
   };

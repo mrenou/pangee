@@ -63,31 +63,33 @@ lonLocal = lonWorld − Δλ_r(t)
 
 ## Anneaux
 
-Trois anneaux, fixes en nombre, séparés par **deux latitudes de coupure** réglables.
+De **un à huit anneaux**, rangés du nord au sud, séparés par des **latitudes de coupure** réglables. Par
+défaut, trois : nord, équateur, sud, coupés à +30° et −30°.
 
 ```ts
-type RingId = 'north' | 'equator' | 'south';
+type RingId = string; // stable : 'north', 'equator', 'south', puis 'ring-4', 'ring-5'…
 
 interface Ring {
   readonly id: RingId;
+  readonly name: string; // affiché au MJ, modifiable
   readonly omegaDegPerDay: number; // signé ; 0 = anneau immobile
 }
 
 interface RingConfig {
-  readonly cutNorthLat: number; // frontière nord/équateur
-  readonly cutSouthLat: number; // frontière équateur/sud
-  readonly rings: Readonly<Record<RingId, Ring>>;
+  readonly rings: readonly Ring[]; // du nord au sud, de 1 à MAX_RINGS = 8
+  readonly cutsLat: readonly number[]; // strictement décroissantes ; cutsLat[i] sépare rings[i] de rings[i + 1]
   readonly t0: number; // date du Cataclysme, défaut 0
 }
 ```
 
-L'appartenance d'une latitude à un anneau :
+L'appartenance d'une latitude à un anneau — une latitude de coupure appartient à l'anneau du sud, au CPU
+comme dans le shader :
 
 ```ts
-function ringOf(lat: number, cfg: RingConfig): RingId {
-  if (lat > cfg.cutNorthLat) return 'north';
-  if (lat < cfg.cutSouthLat) return 'south';
-  return 'equator';
+function ringIndexOf(lat: number, cfg: RingConfig): number {
+  let index = 0;
+  for (const cut of cfg.cutsLat) if (lat <= cut) index += 1;
+  return index;
 }
 ```
 
@@ -95,15 +97,36 @@ Les frontières sont **nettes** : pas de zone de transition, pas d'interpolation
 appartient à un anneau et à un seul. Le cisaillement à la frontière est l'effet recherché —
 villes coupées en deux, routes tranchées, falaises de faille.
 
+### Changer le découpage
+
+Toutes les données étant en référentiel local, changer le découpage **ne touche à aucune coordonnée** :
+seul l'anneau porté par chaque objet change.
+
+| Opération            | Effet                                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------ |
+| Scinder un anneau    | coupure ajoutée en son milieu ; la moitié sud reçoit un nouvel identifiant et **hérite de la vitesse** |
+| Fusionner            | une coupure retirée ; l'anneau du nord absorbe celui du sud, identité et vitesse comprises             |
+| Déplacer une coupure | bornée entre ses voisines, à 1° au moins                                                               |
+
+Après chacune, lieux, routes et créatures sont réaffectés (`src/edit/rings.ts`) : un lieu prend l'anneau de
+sa latitude, une route qui franchit désormais une coupure est scindée comme à sa création, une créature
+dont l'anneau a disparu rejoint celui de son premier point. La moitié scindée hérite de la vitesse parce
+qu'à une date ≠ `t0`, une moitié immobile sauterait sur-le-champ ; le MJ règle ensuite la nouvelle vitesse.
+
+Les identifiants sont stables : un anneau garde le sien quand on le renomme, quand on déplace ses coupures
+ou quand il absorbe un voisin. C'est ce qui permet aux objets de le désigner.
+
 ### Invariants
 
-| Invariant                                       | Vérification                           |
-| ----------------------------------------------- | -------------------------------------- |
-| `cutSouthLat < cutNorthLat`                     | validé à la construction et à l'import |
-| `cutSouthLat` et `cutNorthLat` dans `]-90, 90[` | un anneau ne peut pas être vide        |
-| Un `Place` appartient à exactement un anneau    | `ringId === ringOf(lat)`               |
-| Un `Road` appartient à exactement un anneau     | scission à la création, voir plus bas  |
-| `omegaDegPerDay` fini                           | `Number.isFinite`                      |
+| Invariant                                    | Vérification                           |
+| -------------------------------------------- | -------------------------------------- |
+| de 1 à 8 anneaux, une coupure de moins       | validé à la construction et à l'import |
+| `cutsLat` strictement décroissantes          | validé à la construction et à l'import |
+| coupures dans `]-90, 90[`                    | un anneau ne peut pas être vide        |
+| identifiants d'anneaux uniques               | validé à l'import                      |
+| Un `Place` appartient à exactement un anneau | `ringId === ringOf(lat)`               |
+| Un `Road` appartient à exactement un anneau  | scission à la création, voir plus bas  |
+| `omegaDegPerDay` fini                        | `Number.isFinite`                      |
 
 ## Couches raster
 

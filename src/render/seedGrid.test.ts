@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_RING_CONFIG, type RingConfig } from '@/model/ring';
+import { DEFAULT_RING_CONFIG, type RingConfig, threeRings } from '@/model/ring';
 import { ringOffsetDeg } from '@/model/time';
 import {
   FINE_STEP_DEG,
@@ -124,11 +124,7 @@ describe('hash de case', () => {
 describe('suivi des anneaux', () => {
   const cfg: RingConfig = {
     ...DEFAULT_RING_CONFIG,
-    rings: {
-      north: { id: 'north', omegaDegPerDay: 0.05 },
-      equator: { id: 'equator', omegaDegPerDay: 0 },
-      south: { id: 'south', omegaDegPerDay: -0.03 },
-    },
+    rings: threeRings({ north: 0.05, equator: 0, south: -0.03 }),
   };
 
   /** Indices dont la latitude tombe dans la bande visée. */
@@ -143,7 +139,7 @@ describe('suivi des anneaux', () => {
     const j = jFor(50);
     const local = seedPoint(100, j);
     const world = seedPointInWorld(100, j, cfg, 1000);
-    const offset = ringOffsetDeg(cfg.rings.north, 1000, cfg.t0);
+    const offset = ringOffsetDeg(cfg.rings[0]!, 1000, cfg.t0);
     expect(world.lon).toBeCloseTo(local.lon + offset, 6);
   });
 
@@ -176,7 +172,7 @@ describe('suivi des anneaux', () => {
     const j = jFor(50);
     for (const tDays of [0, 120, 4000, 36500]) {
       const world = seedPointInWorld(100, j, cfg, tDays);
-      const back = world.lon - ringOffsetDeg(cfg.rings.north, tDays, cfg.t0);
+      const back = world.lon - ringOffsetDeg(cfg.rings[0]!, tDays, cfg.t0);
       expect(((back % 360) + 540) % 360).toBeCloseTo(
         ((seedPoint(100, j).lon % 360) + 540) % 360,
         6,

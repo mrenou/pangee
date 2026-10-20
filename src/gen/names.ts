@@ -2,12 +2,25 @@
  * Générateur de toponymes.
  *
  * Chaînes de Markov d'ordre 2 sur les lettres, apprises depuis un corpus par
- * culture. Une culture par anneau : les noms du nord, de l'équateur et du sud
- * ne sonnent pas pareil, ce qui rend le cisaillement des anneaux lisible dans
- * la toponymie elle-même. Voir docs/generation.md.
+ * culture. Trois cultures, par bande de latitude : les noms du nord, des
+ * tropiques et du sud ne sonnent pas pareil, ce qui rend le cisaillement des
+ * anneaux lisible dans la toponymie elle-même. Les cultures suivent la
+ * latitude d'avant le Cataclysme, pas le découpage en anneaux, que le MJ peut
+ * changer à tout moment. Voir docs/generation.md.
  */
 
-import type { RingId } from '@/model/ring';
+/** Culture toponymique d'une bande de latitude. */
+export type NameCulture = 'north' | 'equator' | 'south';
+
+/** Latitude au-delà de laquelle on change de culture, de part et d'autre de l'équateur. */
+const CULTURE_EDGE_LAT = 30;
+
+/** Culture d'une latitude : le nord au-delà de 30°, le sud en deçà de −30°. */
+export function cultureOfLat(latDeg: number): NameCulture {
+  if (latDeg > CULTURE_EDGE_LAT) return 'north';
+  if (latDeg < -CULTURE_EDGE_LAT) return 'south';
+  return 'equator';
+}
 import { mulberry32, type Rng } from '@/gen/rng';
 
 /**
@@ -23,7 +36,7 @@ const ORDER = 2;
  * le générateur n'en ressort presque jamais un nom tel quel, il en apprend les
  * enchaînements de lettres.
  */
-const CORPUS: Readonly<Record<RingId, readonly string[]>> = {
+const CORPUS: Readonly<Record<NameCulture, readonly string[]>> = {
   north: [
     'Vorngard',
     'Skaldheim',
@@ -123,7 +136,7 @@ function buildChain(words: readonly string[]): Chain {
   return chain;
 }
 
-const CHAINS: Readonly<Record<RingId, Chain>> = {
+const CHAINS: Readonly<Record<NameCulture, Chain>> = {
   north: buildChain(CORPUS.north),
   equator: buildChain(CORPUS.equator),
   south: buildChain(CORPUS.south),
@@ -157,17 +170,17 @@ function capitalize(word: string): string {
 }
 
 /**
- * Un nom pour cet anneau, tiré de ce générateur.
+ * Un nom de cette culture, tiré de ce générateur.
  * Après plusieurs essais infructueux, on retombe sur un nom du corpus plutôt
  * que de renvoyer une chaîne vide.
  */
-export function generateName(ring: RingId, rng: Rng): string {
-  const chain = CHAINS[ring];
+export function generateName(culture: NameCulture, rng: Rng): string {
+  const chain = CHAINS[culture];
   for (let tries = 0; tries < 24; tries += 1) {
     const word = attempt(chain, rng);
     if (word) return capitalize(word);
   }
-  const fallback = CORPUS[ring];
+  const fallback = CORPUS[culture];
   return fallback[Math.floor(rng() * fallback.length)]!;
 }
 
@@ -176,6 +189,6 @@ export function generateName(ring: RingId, rng: Rng): string {
  * Chaque lieu tire depuis un générateur dérivé de son propre identifiant, ce
  * qui rend un renommage individuel stable et réutilisable par l'éditeur.
  */
-export function nameForPlace(ring: RingId, seedHash: number): string {
-  return generateName(ring, mulberry32(seedHash));
+export function nameForPlace(culture: NameCulture, seedHash: number): string {
+  return generateName(culture, mulberry32(seedHash));
 }

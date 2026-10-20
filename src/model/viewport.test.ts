@@ -161,8 +161,8 @@ describe('screenToLocal', () => {
     const tDays = 100;
     const world = screenToWorld(v, p);
     const local = screenToLocal(v, p, cfg, tDays);
-    const offset = cfg.rings.north.omegaDegPerDay * (tDays - cfg.t0);
-    expect(world.lat).toBeGreaterThan(cfg.cutNorthLat);
+    const offset = cfg.rings[0]!.omegaDegPerDay * (tDays - cfg.t0);
+    expect(world.lat).toBeGreaterThan(cfg.cutsLat[0]!);
     expect(local.lon).toBeCloseTo(world.lon - offset);
   });
 });

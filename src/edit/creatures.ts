@@ -8,7 +8,7 @@
 import { distanceToSegment, type Point } from '@/edit/roads';
 import { deltaLon, wrapLon } from '@/model/coords';
 import { ringOf, type RingConfig, type RingId } from '@/model/ring';
-import { ringOffsetDeg } from '@/model/time';
+import { offsetOfRing } from '@/model/time';
 import type { Creature, CreatureKind } from '@/model/world';
 
 export const CREATURE_NAMES: Readonly<Record<CreatureKind, string>> = {
@@ -35,7 +35,7 @@ export function worldToRingLocal(
   cfg: RingConfig,
   tDays: number,
 ): number {
-  return wrapLon(lonWorld - ringOffsetDeg(cfg.rings[ringId], tDays, cfg.t0));
+  return wrapLon(lonWorld - offsetOfRing(ringId, 0, cfg, tDays));
 }
 
 export function buildCreature(
@@ -69,7 +69,7 @@ export function creatureAtWorld(
   let bestDistance = maxDeg;
 
   for (const creature of creatures) {
-    const offset = ringOffsetDeg(cfg.rings[creature.ringId], tDays, cfg.t0);
+    const offset = offsetOfRing(creature.ringId, creature.points[0]?.[1] ?? 0, cfg, tDays);
     const relative = creature.points.map(
       ([lon, pointLat]) => [deltaLon(lonWorld, lon + offset), pointLat - lat] as const,
     );

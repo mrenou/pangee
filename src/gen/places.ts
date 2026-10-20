@@ -8,7 +8,7 @@
 
 import { Biome } from '@/climate';
 import { DRY } from '@/hydro/types';
-import { nameForPlace } from '@/gen/names';
+import { cultureOfLat, nameForPlace } from '@/gen/names';
 import { hashSeed, mulberry32 } from '@/gen/rng';
 import { latOfRow, lonOfColumn, kmPerDegLat, kmPerDegLon, wrapLon } from '@/model/coords';
 import { ringOf, type RingConfig } from '@/model/ring';
@@ -163,7 +163,7 @@ export function placePlaces(input: PlacementInput): readonly Place[] {
       ringId,
       lon,
       lat,
-      name: nameForPlace(ringId, hashSeed(`${seed}:${id}`, 'names')),
+      name: nameForPlace(cultureOfLat(lat), hashSeed(`${seed}:${id}`, 'names')),
       kind: kindFor(
         rank,
         mulberry32(hashSeed(id, 'places'))(),

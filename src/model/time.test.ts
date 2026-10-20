@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_RING_CONFIG, type RingConfig } from '@/model/ring';
+import { DEFAULT_RING_CONFIG, type RingConfig, threeRings } from '@/model/ring';
 import {
   kmPerDay,
   localToWorldLon,
@@ -12,39 +12,33 @@ import {
 
 const cfg: RingConfig = {
   ...DEFAULT_RING_CONFIG,
-  rings: {
-    north: { id: 'north', omegaDegPerDay: 1 },
-    equator: { id: 'equator', omegaDegPerDay: 0 },
-    south: { id: 'south', omegaDegPerDay: -0.5 },
-  },
+  rings: threeRings({ north: 1, equator: 0, south: -0.5 }),
 };
 
 describe('rotation des anneaux', () => {
   it('aligne tous les anneaux à t0 : la carte est le monde d avant', () => {
     const offsets = ringOffsetsDeg(cfg, cfg.t0);
-    expect(offsets.north).toBe(0);
-    expect(offsets.equator).toBe(0);
-    expect(offsets.south).toBe(0);
+    expect(offsets).toEqual([0, 0, 0]);
   });
 
   it('laisse un anneau de vitesse nulle immobile quelle que soit la date', () => {
-    expect(ringOffsetDeg(cfg.rings.equator, 10_000, cfg.t0)).toBe(0);
+    expect(ringOffsetDeg(cfg.rings[1]!, 10_000, cfg.t0)).toBe(0);
   });
 
   it('tourne dans le sens du signe de omega', () => {
-    expect(ringOffsetDeg(cfg.rings.north, 10, cfg.t0)).toBeCloseTo(10);
-    expect(ringOffsetDeg(cfg.rings.south, 10, cfg.t0)).toBeCloseTo(-5);
+    expect(ringOffsetDeg(cfg.rings[0]!, 10, cfg.t0)).toBeCloseTo(10);
+    expect(ringOffsetDeg(cfg.rings[2]!, 10, cfg.t0)).toBeCloseTo(-5);
   });
 
   it('boucle après un tour complet', () => {
-    expect(ringOffsetDeg(cfg.rings.north, 360, cfg.t0)).toBeCloseTo(0);
-    expect(ringOffsetDeg(cfg.rings.north, 365, cfg.t0)).toBeCloseTo(5);
+    expect(ringOffsetDeg(cfg.rings[0]!, 360, cfg.t0)).toBeCloseTo(0);
+    expect(ringOffsetDeg(cfg.rings[0]!, 365, cfg.t0)).toBeCloseTo(5);
   });
 
   it('respecte un t0 décalé', () => {
     const shifted: RingConfig = { ...cfg, t0: 100 };
-    expect(ringOffsetDeg(shifted.rings.north, 100, shifted.t0)).toBe(0);
-    expect(ringOffsetDeg(shifted.rings.north, 110, shifted.t0)).toBeCloseTo(10);
+    expect(ringOffsetDeg(shifted.rings[0]!, 100, shifted.t0)).toBe(0);
+    expect(ringOffsetDeg(shifted.rings[0]!, 110, shifted.t0)).toBeCloseTo(10);
   });
 });
 
@@ -85,9 +79,9 @@ describe('conversion entre référentiels', () => {
 
 describe('vitesses affichées', () => {
   it('place la latitude médiane au milieu de chaque anneau', () => {
-    expect(midLat('north', cfg)).toBeCloseTo(60);
-    expect(midLat('equator', cfg)).toBeCloseTo(0);
-    expect(midLat('south', cfg)).toBeCloseTo(-60);
+    expect(midLat(0, cfg)).toBeCloseTo(60);
+    expect(midLat(1, cfg)).toBeCloseTo(0);
+    expect(midLat(2, cfg)).toBeCloseTo(-60);
   });
 
   it('convertit degrés par jour en kilomètres par jour à l équateur', () => {

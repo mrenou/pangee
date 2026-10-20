@@ -1,15 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_RING_CONFIG, type RingConfig } from '@/model/ring';
+import { DEFAULT_RING_CONFIG, type RingConfig, threeRings } from '@/model/ring';
 import { ringOffsetDeg } from '@/model/time';
 import { worldLagDeg } from '@/render/worldLag';
 
 const cfg: RingConfig = {
   ...DEFAULT_RING_CONFIG,
-  rings: {
-    north: { id: 'north', omegaDegPerDay: 0.05 },
-    equator: { id: 'equator', omegaDegPerDay: 0 },
-    south: { id: 'south', omegaDegPerDay: -0.03 },
-  },
+  rings: threeRings({ north: 0.05, equator: 0, south: -0.03 }),
 };
 
 describe('retard des couches dérivées', () => {
@@ -40,14 +36,14 @@ describe('retard des couches dérivées', () => {
     // lonLocal + Δ(calcul). En lui ajoutant le retard, on retombe sur la
     // longitude qu'elle doit occuper aujourd'hui : lonLocal + Δ(maintenant).
     const lonLocal = 42;
-    const atCalc = lonLocal + ringOffsetDeg(cfg.rings.north, 300, cfg.t0);
+    const atCalc = lonLocal + ringOffsetDeg(cfg.rings[0]!, 300, cfg.t0);
     const shown = atCalc + worldLagDeg(cfg, 50, 1700, 300);
-    expect(shown).toBeCloseTo(lonLocal + ringOffsetDeg(cfg.rings.north, 1700, cfg.t0), 6);
+    expect(shown).toBeCloseTo(lonLocal + ringOffsetDeg(cfg.rings[0]!, 1700, cfg.t0), 6);
   });
 
   it('change de valeur de part et d autre d une coupure', () => {
-    const north = worldLagDeg(cfg, cfg.cutNorthLat + 1, 1000, 0);
-    const equator = worldLagDeg(cfg, cfg.cutNorthLat - 1, 1000, 0);
+    const north = worldLagDeg(cfg, cfg.cutsLat[0]! + 1, 1000, 0);
+    const equator = worldLagDeg(cfg, cfg.cutsLat[0]! - 1, 1000, 0);
     expect(north).not.toBe(equator);
   });
 });

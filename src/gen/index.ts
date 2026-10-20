@@ -86,4 +86,4 @@ export function generateWorld(request: GenerateWorldRequest): GenerateWorldResul
 export { DEFAULT_TERRAIN_PARAMS, MAX_ALTITUDE_M, MAX_DEPTH_M } from '@/gen/terrain';
 export type { TerrainParams } from '@/gen/terrain';
 export { targetPlaceCount, minDistanceKm, distanceKm } from '@/gen/places';
-export { generateName, nameForPlace } from '@/gen/names';
+export { cultureOfLat, generateName, nameForPlace, type NameCulture } from '@/gen/names';

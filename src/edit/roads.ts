@@ -9,14 +9,14 @@
 
 import { deltaLon, wrapLon } from '@/model/coords';
 import { ringOf, type RingConfig, type RingId } from '@/model/ring';
-import { ringOffsetDeg } from '@/model/time';
+import { offsetOfRing } from '@/model/time';
 import type { Place, Road, RoadKind } from '@/model/world';
 
 export type Point = readonly [number, number];
 
-/** Les deux latitudes où une route peut être tranchée. */
+/** Les latitudes où une route peut être tranchée. */
 function cutsOf(cfg: RingConfig): readonly number[] {
-  return [cfg.cutNorthLat, cfg.cutSouthLat];
+  return cfg.cutsLat;
 }
 
 /**
@@ -162,7 +162,7 @@ export function roadAtWorld(
   let bestDistance = maxDeg;
 
   for (const road of roads) {
-    const offset = ringOffsetDeg(cfg.rings[road.ringId], tDays, cfg.t0);
+    const offset = offsetOfRing(road.ringId, road.points[0]?.[1] ?? 0, cfg, tDays);
     // Points exprimés relativement au curseur, couture du méridien comprise.
     let previous: Point | undefined;
     for (const [lon, pointLat] of road.points) {

@@ -11,7 +11,7 @@ import { Container, Graphics } from 'pixi.js';
 import type { Point } from '@/edit/roads';
 import { wrapLon } from '@/model/coords';
 import type { RingConfig } from '@/model/ring';
-import { ringOffsetDeg } from '@/model/time';
+import { offsetAtLat, offsetOfRing } from '@/model/time';
 import { worldToScreen, type Viewport } from '@/model/viewport';
 import type { Road } from '@/model/world';
 
@@ -53,7 +53,7 @@ export function createRoadLayer(): RoadLayer {
     if (!viewport || !ringConfig) return;
 
     for (const road of roads) {
-      const offset = ringOffsetDeg(ringConfig.rings[road.ringId], tDays, ringConfig.t0);
+      const offset = offsetOfRing(road.ringId, road.points[0]?.[1] ?? 0, ringConfig, tDays);
       if (road.id === selectedId) {
         // Un liseré large sous le tracé : la route garde son style propre.
         strokePath(
@@ -83,8 +83,7 @@ export function createRoadLayer(): RoadLayer {
         graphics,
         viewport,
         draft.map(([lon, lat]) => {
-          const ring = config.rings[ringOfLat(lat, config)];
-          return [wrapLon(lon + ringOffsetDeg(ring, tDays, config.t0)), lat] as Point;
+          return [wrapLon(lon + offsetAtLat(lat, config, tDays)), lat] as Point;
         }),
         { width: 1.6, dash: 4 },
         DRAFT_INK,
@@ -118,12 +117,6 @@ export function createRoadLayer(): RoadLayer {
     },
     destroy: () => container.destroy({ children: true }),
   };
-}
-
-function ringOfLat(lat: number, cfg: RingConfig): 'north' | 'equator' | 'south' {
-  if (lat > cfg.cutNorthLat) return 'north';
-  if (lat < cfg.cutSouthLat) return 'south';
-  return 'equator';
 }
 
 /**

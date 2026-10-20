@@ -31,6 +31,8 @@ secondaire éventuelle.
 
 ### D3 — Trois anneaux fixes, deux coupures réglables, frontières nettes
 
+**Remplacé par D13** (anneaux en nombre variable).
+
 **Décidé.** `north` / `equator` / `south`, séparés par `cutNorthLat` et `cutSouthLat`, avec une
 vitesse signée par anneau allant de quasi-immobile à très rapide. Voir
 [le modèle du monde](modele-monde.md).
@@ -185,6 +187,25 @@ anneau est déjà juste à une cellule près. Le recalcul continu ne demande rie
 
 _Écarté pour l'instant :_ les images-clés précalculées et interpolées, gardées en point ouvert de
 [le temps](temps.md) pour le jour où le recalcul ne suivra plus.
+
+---
+
+## 2026-10-20 — D13 : anneaux en nombre variable (remplace D3)
+
+**Décidé.** De un à huit anneaux, rangés du nord au sud et séparés par des latitudes de coupure. Le MJ en
+ajoute en **scindant** un anneau existant en son milieu — la moitié sud hérite de sa vitesse — et en retire
+en **fusionnant** deux voisins. Chaque anneau a un identifiant stable et un nom. Une latitude de coupure
+appartient désormais à l'anneau du sud, au CPU comme dans le shader. Format `.pangee` en version 3. Les
+toponymes suivent la latitude (trois cultures, à ±30°) et non plus l'anneau.
+
+_Pourquoi :_ demande explicite du MJ, pour raconter des fractures plus fines que trois bandes. Le stockage
+en référentiel local (D4) rend l'opération sûre : aucune coordonnée ne change, seul l'anneau porté par
+chaque objet est recalculé. Huit suffit largement et garde des tableaux d'uniformes de taille fixe.
+
+_Écarté :_ une liste libre de coupures sans identité d'anneau (les objets n'auraient plus de référence
+stable) ; une moitié scindée immobile (elle sauterait à l'écran à toute date ≠ `t0`) ; des cultures de noms
+par anneau (un anneau scindé n'a pas de culture évidente, et renommer les lieux au gré du découpage serait
+destructeur). La zone de transition aux frontières reste écartée, comme en D3.
 
 ---
 

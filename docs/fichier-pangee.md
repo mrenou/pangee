@@ -38,7 +38,7 @@ interface WorldFile {
     seaLevelM: number;
     campaignDate: number; // date courante, en jours depuis le Cataclysme
   };
-  rings: RingConfig; // cutNorthLat, cutSouthLat, rings[RingId].omegaDegPerDay, t0
+  rings: RingConfig; // rings[] du nord au sud (id, name, omegaDegPerDay), cutsLat[], t0
   rasters: RasterIndex;
   places: Place[];
   roads: Road[];
@@ -91,10 +91,11 @@ navigateur actuelles. Un fichier annonçant autre chose que `'little'` est refus
 
 `formatVersion` est un entier, incrémenté à chaque changement incompatible.
 
-| Version | Changement           | Migration depuis la précédente |
-| ------- | -------------------- | ------------------------------ |
-| 1       | format initial       | —                              |
-| 2       | ajout de `creatures` | `creatures: []`                |
+| Version | Changement                 | Migration depuis la précédente                                                                             |
+| ------- | -------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 1       | format initial             | —                                                                                                          |
+| 2       | ajout de `creatures`       | `creatures: []`                                                                                            |
+| 3       | anneaux en nombre variable | `{ cutNorthLat, cutSouthLat, rings: { north, equator, south } }` devient une liste, identifiants conservés |
 
 Ajouter un champ suffit à justifier une version : une application v1 qui relirait puis réenregistrerait un
 fichier v2 effacerait les créatures sans prévenir. Elle refuse désormais le fichier, avec un message clair.
@@ -136,7 +137,7 @@ const migrations: Record<number, Migration> = { 1: v1ToV2, 2: v2ToV3 };
 ## Robustesse à l'import
 
 L'import valide la structure **avant** de toucher à l'état courant : présence des entrées attendues, cohérence
-de `rasters.width × rasters.height` avec la taille des tampons, invariant `cutSouthLat < cutNorthLat`,
+de `rasters.width × rasters.height` avec la taille des tampons, invariants des anneaux (de 1 à 8, coupures décroissantes, identifiants uniques),
 `RingId` connus, `ringId` de chaque `Place` et `Road` compatible avec sa latitude. Le parsing se fait aux
 frontières du système, lève une erreur typée en cas d'échec, et ne produit un nouvel état que complet : il n'y
 a jamais d'état à moitié chargé, l'ancien monde reste intact si l'import échoue. Voir

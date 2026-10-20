@@ -15,7 +15,7 @@
  * Voir docs/rendu.md.
  */
 
-import { ringOf, type RingConfig } from '@/model/ring';
+import { ringIndexOf, type RingConfig } from '@/model/ring';
 import { ringOffsetDeg } from '@/model/time';
 
 /**
@@ -32,6 +32,6 @@ export function worldLagDeg(
   tDays: number,
   layerTDays: number,
 ): number {
-  const ring = cfg.rings[ringOf(lat, cfg)];
+  const ring = cfg.rings[ringIndexOf(lat, cfg)]!;
   return ringOffsetDeg(ring, tDays, cfg.t0) - ringOffsetDeg(ring, layerTDays, cfg.t0);
 }

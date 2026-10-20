@@ -1,16 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { movePlace, placeAtWorld, removePlace, updatePlace } from '@/edit/places';
-import { DEFAULT_RING_CONFIG, type RingConfig } from '@/model/ring';
+import { DEFAULT_RING_CONFIG, type RingConfig, threeRings } from '@/model/ring';
 import type { Place } from '@/model/world';
 
 // Coupures à +30 et -30 ; l'anneau nord tourne d'un degré par jour.
 const cfg: RingConfig = {
   ...DEFAULT_RING_CONFIG,
-  rings: {
-    north: { id: 'north', omegaDegPerDay: 1 },
-    equator: { id: 'equator', omegaDegPerDay: 0 },
-    south: { id: 'south', omegaDegPerDay: 0 },
-  },
+  rings: threeRings({ north: 1, equator: 0, south: 0 }),
   t0: 0,
 };
 

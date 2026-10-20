@@ -1,6 +1,6 @@
 # Pangée
 
-Outil web pour un MJ : une planète découpée par un Cataclysme en trois anneaux qui tournent, à
+Outil web pour un MJ : une planète découpée par un Cataclysme en anneaux qui tournent, à
 visualiser, régler dans le temps, sculpter et partager en PNG. Site statique, aucun backend.
 
 ```bash

@@ -1,14 +1,10 @@
+import { useState } from 'react';
 import { kmPerDay, midLat, ringOffsetsDeg } from '@/model/time';
-import { RING_IDS, type RingId } from '@/model/ring';
+import { MAX_RINGS, type Ring } from '@/model/ring';
+import { useEditStore } from '@/store/editStore';
 import { useHydroStore } from '@/store/hydroStore';
 import { MAX_T_DAYS, useWorldStore } from '@/store/worldStore';
 import { Field } from '@/ui/Field';
-
-const RING_LABELS: Readonly<Record<RingId, string>> = {
-  north: 'Anneau nord',
-  equator: 'Anneau équatorial',
-  south: 'Anneau sud',
-};
 
 function formatSpeed(omegaDegPerDay: number, kmParJour: number): string {
   if (omegaDegPerDay === 0) return 'immobile';
@@ -24,12 +20,9 @@ function formatSpeed(omegaDegPerDay: number, kmParJour: number): string {
 export function RingPanel() {
   const cfg = useWorldStore((s) => s.ringConfig);
   const tDays = useWorldStore((s) => s.tDays);
-  const radiusKm = useWorldStore((s) => s.radiusKm);
   const seaLevelM = useWorldStore((s) => s.seaLevelM);
   const showFaults = useWorldStore((s) => s.showFaults);
   const setTDays = useWorldStore((s) => s.setTDays);
-  const setOmega = useWorldStore((s) => s.setOmega);
-  const setCut = useWorldStore((s) => s.setCut);
   const setSeaLevel = useWorldStore((s) => s.setSeaLevel);
   const setShowFaults = useWorldStore((s) => s.setShowFaults);
   const animate = useWorldStore((s) => s.animate);
@@ -57,7 +50,7 @@ export function RingPanel() {
       <p className="mt-1 text-xs text-ink-soft">
         {tDays === cfg.t0
           ? 'Le monde d’avant le Cataclysme : les anneaux sont alignés.'
-          : `Décalages : ${offsets.north.toFixed(1)}° · ${offsets.equator.toFixed(1)}° · ${offsets.south.toFixed(1)}°`}
+          : `Décalages : ${offsets.map((offset) => `${offset.toFixed(1)}°`).join(' · ')}`}
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-1">
         <button
@@ -74,43 +67,7 @@ export function RingPanel() {
         Les anneaux
       </h2>
 
-      {RING_IDS.map((id) => {
-        const omega = cfg.rings[id].omegaDegPerDay;
-        return (
-          <Field
-            key={id}
-            id={`omega-${id}`}
-            label={RING_LABELS[id]}
-            value={formatSpeed(omega, kmPerDay(omega, midLat(id, cfg), radiusKm))}
-            min={-0.5}
-            max={0.5}
-            step={0.001}
-            current={omega}
-            onChange={(value) => setOmega(id, value)}
-          />
-        );
-      })}
-
-      <Field
-        id="cut-north"
-        label="Coupure nord"
-        value={`${cfg.cutNorthLat.toFixed(0)}°`}
-        min={-88}
-        max={88}
-        step={1}
-        current={cfg.cutNorthLat}
-        onChange={(lat) => setCut('north', lat)}
-      />
-      <Field
-        id="cut-south"
-        label="Coupure sud"
-        value={`${cfg.cutSouthLat.toFixed(0)}°`}
-        min={-88}
-        max={88}
-        step={1}
-        current={cfg.cutSouthLat}
-        onChange={(lat) => setCut('south', lat)}
-      />
+      <RingsEditor />
 
       <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-ink-soft">
         La planète
@@ -159,6 +116,110 @@ export function RingPanel() {
 
       <HydroStatus />
     </section>
+  );
+}
+
+const BUTTON_CLASS =
+  'rounded border border-ink-soft/40 px-2 py-0.5 text-xs hover:bg-parchment-dark disabled:opacity-40';
+
+/**
+ * Les anneaux du nord au sud, et les coupures qui les séparent. Scinder et
+ * fusionner sont des commandes annulables ; vitesses et coupures se règlent en
+ * continu. Voir docs/editeur.md et docs/modele-monde.md.
+ */
+function RingsEditor() {
+  const cfg = useWorldStore((s) => s.ringConfig);
+  const radiusKm = useWorldStore((s) => s.radiusKm);
+  const setOmega = useWorldStore((s) => s.setOmega);
+  const splitRing = useEditStore((s) => s.splitRing);
+  const mergeAtCut = useEditStore((s) => s.mergeAtCut);
+  const moveCut = useEditStore((s) => s.moveCut);
+  const full = cfg.rings.length >= MAX_RINGS;
+
+  return (
+    <div>
+      {cfg.rings.map((ring, index) => {
+        const omega = ring.omegaDegPerDay;
+        const cut = cfg.cutsLat[index];
+        return (
+          <div key={ring.id}>
+            <div className="mt-3 rounded border border-ink-soft/20 p-2">
+              <div className="flex items-center gap-1">
+                <RingName ring={ring} />
+                <button
+                  type="button"
+                  onClick={() => splitRing(index)}
+                  disabled={full}
+                  title={full ? `${MAX_RINGS} anneaux au plus` : 'Couper cet anneau en deux'}
+                  className={BUTTON_CLASS}
+                >
+                  Scinder
+                </button>
+              </div>
+              <Field
+                id={`omega-${ring.id}`}
+                label={ring.name}
+                value={formatSpeed(omega, kmPerDay(omega, midLat(index, cfg), radiusKm))}
+                min={-0.5}
+                max={0.5}
+                step={0.001}
+                current={omega}
+                onChange={(value) => setOmega(ring.id, value)}
+              />
+            </div>
+            {cut !== undefined && (
+              <div className="flex items-end gap-1">
+                <div className="flex-1">
+                  <Field
+                    id={`cut-${index}`}
+                    label={`Coupure ${index + 1}`}
+                    value={`${cut.toFixed(0)}°`}
+                    min={-89}
+                    max={89}
+                    step={1}
+                    current={cut}
+                    onChange={(lat) => moveCut(index, lat)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => mergeAtCut(index)}
+                  title="Supprimer cette coupure : les deux anneaux n’en font plus qu’un"
+                  className={`${BUTTON_CLASS} mb-0.5`}
+                >
+                  Fusionner
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <p className="mt-2 text-xs text-ink-soft">
+        {cfg.rings.length} anneau{cfg.rings.length > 1 ? 'x' : ''} sur {MAX_RINGS} possibles.
+      </p>
+    </div>
+  );
+}
+
+/** Nom d'un anneau, validé à la sortie du champ. */
+function RingName({ ring }: { readonly ring: Ring }) {
+  const setRingName = useWorldStore((s) => s.setRingName);
+  const [name, setName] = useState(ring.name);
+  return (
+    <input
+      aria-label={`Intitulé de l’anneau ${ring.name}`}
+      value={name}
+      onChange={(e) => setName(e.currentTarget.value)}
+      onBlur={() => {
+        const trimmed = name.trim();
+        if (trimmed === '') setName(ring.name);
+        else if (trimmed !== ring.name) setRingName(ring.id, trimmed);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+      }}
+      className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 text-sm font-medium hover:border-ink-soft/30"
+    />
   );
 }
 

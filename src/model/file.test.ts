@@ -179,11 +179,31 @@ describe('robustesse à l import', () => {
   it('migre un monde de la version 1, qui ne connaissait pas les créatures', () => {
     const v1 = rewriteManifest(serializeWorld(document()), (manifest) => {
       delete manifest.creatures;
+      manifest.rings = LEGACY_RINGS;
       manifest.formatVersion = 1;
     });
     const parsed = parseWorld(v1);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) expect(parsed.value.creatures).toEqual([]);
+  });
+
+  it('migre les trois anneaux fixes de la version 2 en liste, identifiants conservés', () => {
+    const v2 = rewriteManifest(serializeWorld(document()), (manifest) => {
+      manifest.rings = LEGACY_RINGS;
+      manifest.formatVersion = 2;
+    });
+    const parsed = parseWorld(v2);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.ringConfig).toEqual({
+      rings: [
+        { id: 'north', name: 'Anneau nord', omegaDegPerDay: 0.5 },
+        { id: 'equator', name: 'Anneau équatorial', omegaDegPerDay: 0 },
+        { id: 'south', name: 'Anneau sud', omegaDegPerDay: -0.25 },
+      ],
+      cutsLat: [40, -20],
+      t0: 12,
+    });
   });
 
   it('refuse une créature mal formée', () => {
@@ -212,6 +232,18 @@ function serializeWorldWithVersion(doc: WorldDocument, version: number): Uint8Ar
   entries['world.json'] = new TextEncoder().encode(JSON.stringify(manifest));
   return zipSync(entries);
 }
+
+/** Configuration d'anneaux telle que l'écrivaient les versions 1 et 2. */
+const LEGACY_RINGS = {
+  cutNorthLat: 40,
+  cutSouthLat: -20,
+  rings: {
+    north: { id: 'north', omegaDegPerDay: 0.5 },
+    equator: { id: 'equator', omegaDegPerDay: 0 },
+    south: { id: 'south', omegaDegPerDay: -0.25 },
+  },
+  t0: 12,
+};
 
 /** Réécrit world.json par une fonction, pour fabriquer des fichiers d'autres versions. */
 function rewriteManifest(

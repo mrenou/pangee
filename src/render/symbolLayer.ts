@@ -10,8 +10,8 @@
 import { Container, Graphics } from 'pixi.js';
 import { Biome } from '@/climate';
 import { columnOfLon, idx, rowOfLat } from '@/model/coords';
-import { ringOf, type RingConfig } from '@/model/ring';
-import { ringOffsetDeg } from '@/model/time';
+import type { RingConfig } from '@/model/ring';
+import { offsetAtLat } from '@/model/time';
 import type { Viewport } from '@/model/viewport';
 import type { RasterSize } from '@/model/world';
 import {
@@ -119,7 +119,7 @@ export function createSymbolLayer(): SymbolLayer {
       // monde laissait le relief défiler sous un semis immobile, et les
       // montagnes changeaient de forme à mesure que le continent passait.
       const rowLat = (j + 0.5) * FINE_STEP_DEG;
-      const offsetDeg = cfg ? ringOffsetDeg(cfg.rings[ringOf(rowLat, cfg)], tDays, cfg.t0) : 0;
+      const offsetDeg = cfg ? offsetAtLat(rowLat, cfg, tDays) : 0;
 
       // Le relief assemblé date du dernier calcul : on le lit à la position
       // qu'il occupait alors. Sans cela les symboles se déplaçaient bien tout

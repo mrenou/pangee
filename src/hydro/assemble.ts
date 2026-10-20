@@ -7,8 +7,8 @@
  */
 
 import { latOfRow, wrapX } from '@/model/coords';
-import { ringOf, type RingConfig } from '@/model/ring';
-import { ringOffsetDeg } from '@/model/time';
+import type { RingConfig } from '@/model/ring';
+import { offsetAtLat } from '@/model/time';
 import type { RasterSize } from '@/model/world';
 
 /**
@@ -17,8 +17,7 @@ import type { RasterSize } from '@/model/world';
  * produiraient des artefacts d'un pixel le long des coupures.
  */
 export function rowShiftCells(lat: number, cfg: RingConfig, tDays: number, width: number): number {
-  const ring = cfg.rings[ringOf(lat, cfg)];
-  const offsetDeg = ringOffsetDeg(ring, tDays, cfg.t0);
+  const offsetDeg = offsetAtLat(lat, cfg, tDays);
   return Math.round((offsetDeg / 360) * width);
 }
 
