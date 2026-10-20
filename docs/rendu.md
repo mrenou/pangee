@@ -295,7 +295,8 @@ Sans quoi le changement n'apparaît qu'au prochain mouvement de caméra.
 
 Pendant une animation, la boucle de Pixi rend chaque image : animer revient à faire avancer une **horloge**
 (`uTimeS`, en secondes) dans le ticker avant le rendu. Rien n'est reconstruit d'une image à l'autre. Hors
-animation, la boucle est arrêtée (voir « Rendu à la demande » ci-dessus). Réglage « Animer l'eau, les volcans et
+animation, la boucle est arrêtée (voir « Rendu à la demande » ci-dessus). Elle est plafonnée à 30 images
+par seconde : houle, fumée et vols sont assez lents pour ne rien y perdre, et le calcul est divisé par deux. Réglage « Animer l'eau, les volcans et
 les créatures », non enregistré, coupé d'office si le système demande de réduire les mouvements
 (`prefers-reduced-motion`). Coupée, l'horloge revient à zéro et la carte est exactement l'image fixe d'avant.
 Les tests de bout en bout tournent en `reducedMotion: 'reduce'`, sans quoi leurs comparaisons d'images au

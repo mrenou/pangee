@@ -24,6 +24,9 @@ async function clipHash(page: Page, x: number, y: number): Promise<string> {
 }
 
 test('un dragon tracé vole, se retouche et survit au rechargement', async ({ page }) => {
+  // Animée, la carte se redessine à chaque image : en rendu logiciel, sur le
+  // runner d'intégration, chaque capture se fait attendre.
+  test.slow();
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');

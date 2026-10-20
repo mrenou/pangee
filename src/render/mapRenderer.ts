@@ -146,6 +146,9 @@ export interface MapRenderer {
 
 const PARCHMENT_BACKGROUND = 0xd4c4a0;
 
+/** Cadence des animations décoratives. */
+const ANIMATION_MAX_FPS = 30;
+
 export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer> {
   const app = new Application();
   await app.init({
@@ -322,6 +325,9 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     animated = next;
     if (next) {
       app.ticker.add(tick);
+      // Houle, fumée et vols sont lents : trente images par seconde suffisent,
+      // pour moitié moins de calcul qu'au rythme de l'écran.
+      app.ticker.maxFPS = ANIMATION_MAX_FPS;
       app.start();
       return;
     }

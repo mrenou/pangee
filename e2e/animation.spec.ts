@@ -29,6 +29,9 @@ test.describe('sans réduction des mouvements', () => {
   test.use({ reducedMotion: 'no-preference' });
 
   test('l eau bouge, puis se fige quand on coupe l animation', async ({ page }) => {
+    // Animée, la carte se redessine à chaque image : en rendu logiciel, sur le
+    // runner d'intégration, chaque capture se fait attendre.
+    test.slow();
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto('/');
