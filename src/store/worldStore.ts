@@ -57,10 +57,12 @@ interface WorldState {
   /** Instantané du monde, tel qu'il sera enregistré. */
   snapshot: () => WorldDocument | undefined;
   exportWorld: () => void;
-  importWorld: (file: File) => Promise<void>;
+  /** Remplace le monde courant par un fichier ; `false` si la lecture a échoué. */
+  importWorld: (file: File) => Promise<boolean>;
   restoreFromStorage: () => Promise<boolean>;
   scheduleAutosave: () => void;
-  regenerate: () => Promise<void>;
+  /** Façonne un monde neuf ; `false` si la génération a échoué. */
+  regenerate: () => Promise<boolean>;
 }
 
 export const MAX_ALTITUDE = MAX_ALTITUDE_M;
@@ -181,9 +183,10 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     const parsed = await readWorldFile(file);
     if (!parsed.ok) {
       set({ error: parsed.error });
-      return;
+      return false;
     }
     get().adopt(parsed.value);
+    return true;
   },
 
   restoreFromStorage: async () => {
@@ -250,10 +253,12 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         status: 'idle',
       }));
       get().scheduleAutosave();
+      return true;
     } catch (cause) {
       // Une erreur de worker doit atteindre l'interface, jamais mourir en
       // silence. Voir docs/conventions.md.
       set({ status: 'error', error: cause instanceof Error ? cause.message : String(cause) });
+      return false;
     }
   },
 }));

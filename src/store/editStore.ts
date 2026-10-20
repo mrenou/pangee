@@ -63,6 +63,10 @@ interface EditState {
   undo: () => void;
   redo: () => void;
   resetHistory: () => void;
+  /** Régénère le monde ; la pile d'annulation, devenue sans objet, est vidée. */
+  regenerate: () => Promise<void>;
+  /** Remplace le monde par un fichier, et vide de même la pile d'annulation. */
+  importWorld: (file: File) => Promise<void>;
 }
 
 const DEFAULT_RELIEF: ReliefBrush = {
@@ -76,7 +80,7 @@ function syncFlags(): Pick<EditState, 'canUndo' | 'canRedo' | 'undoLabel'> {
   return { canUndo: history.canUndo, canRedo: history.canRedo, undoLabel: history.undoLabel };
 }
 
-export const useEditStore = create<EditState>((set) => ({
+export const useEditStore = create<EditState>((set, get) => ({
   tool: 'pan',
   relief: DEFAULT_RELIEF,
   biomeShape: { radius: 10, falloff: 0 },
@@ -118,5 +122,15 @@ export const useEditStore = create<EditState>((set) => ({
   resetHistory: () => {
     history.clear();
     set({ edited: false, ...syncFlags() });
+  },
+
+  // Les commandes de la pile visent l'ancien monde : annuler un coup de
+  // pinceau rejouerait son patch sur un relief qui n'a plus rien à voir.
+  regenerate: async () => {
+    if (await useWorldStore.getState().regenerate()) get().resetHistory();
+  },
+
+  importWorld: async (file) => {
+    if (await useWorldStore.getState().importWorld(file)) get().resetHistory();
   },
 }));

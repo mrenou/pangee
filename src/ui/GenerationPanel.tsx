@@ -1,3 +1,4 @@
+import { useEditStore } from '@/store/editStore';
 import { useWorldStore } from '@/store/worldStore';
 import { Field } from '@/ui/Field';
 
@@ -10,7 +11,8 @@ export function GenerationPanel() {
   const placeDensity = useWorldStore((s) => s.placeDensity);
   const setPlaceDensity = useWorldStore((s) => s.setPlaceDensity);
   const places = useWorldStore((s) => s.places);
-  const regenerate = useWorldStore((s) => s.regenerate);
+  const regenerate = useEditStore((s) => s.regenerate);
+  const edited = useEditStore((s) => s.edited);
 
   return (
     <section className="mt-6">
@@ -71,7 +73,17 @@ export function GenerationPanel() {
 
       <button
         type="button"
-        onClick={() => void regenerate()}
+        onClick={() => {
+          if (
+            edited &&
+            !window.confirm(
+              'Ce monde a été édité, la régénération effacera ces modifications. Continuer ?',
+            )
+          ) {
+            return;
+          }
+          void regenerate();
+        }}
         disabled={status === 'running'}
         className="mt-3 w-full rounded border border-ink-soft/40 px-2 py-1.5 text-sm hover:bg-parchment-dark disabled:opacity-50"
       >

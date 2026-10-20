@@ -142,6 +142,14 @@ reçu au moins une commande d'édition, une confirmation explicite est demandée
 régénération effacera ces modifications »). La régénération vide la pile d'undo. Voir
 [la génération](generation.md).
 
+L'import d'un `.pangee` obéit à la même règle : confirmation si le monde courant a été édité, pile d'undo
+vidée une fois le fichier adopté. Dans les deux cas, la pile n'est vidée qu'en cas de succès — un échec
+laisse le monde et son historique intacts. Les commandes de la pile visent l'ancien monde : les garder
+rejouerait des patchs sur un relief qui n'a plus rien à voir.
+
+« Édité » signifie « a reçu une commande depuis l'ouverture de la page » : l'information n'est pas
+persistée, donc un monde rechargé puis régénéré sans nouvelle édition ne déclenche pas l'avertissement.
+
 ## Points ouverts
 
 - Édition de la couche `urban` (v1.1) : pinceau d'emprise, lien avec les `Place` d'une ville coupée,
