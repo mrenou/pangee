@@ -3,12 +3,15 @@ import {
   buildRoads,
   insertCutPoints,
   interpolateAtLat,
+  removeRoad,
   resetRoadIds,
+  roadAtWorld,
+  setRoadKind,
   snapToPlace,
   type Point,
 } from '@/edit/roads';
 import { DEFAULT_RING_CONFIG, ringOf, type RingConfig } from '@/model/ring';
-import type { Place } from '@/model/world';
+import type { Place, Road } from '@/model/world';
 
 const cfg: RingConfig = DEFAULT_RING_CONFIG; // coupures à +30 et -30
 
@@ -221,5 +224,95 @@ describe('magnétisme', () => {
 
   it('accroche par-delà le méridien ±180', () => {
     expect(snapToPlace(175, 0, places, 20)?.id).toBe('b');
+  });
+});
+
+describe('route sous le curseur', () => {
+  const turning: RingConfig = {
+    ...DEFAULT_RING_CONFIG,
+    rings: {
+      north: { id: 'north', omegaDegPerDay: 1 },
+      equator: { id: 'equator', omegaDegPerDay: 0 },
+      south: { id: 'south', omegaDegPerDay: 0 },
+    },
+    t0: 0,
+  };
+  // Une route nord, de (0, 40) à (10, 40), et une route équatoriale verticale à x = 20.
+  const north: Road = {
+    id: 'n',
+    ringId: 'north',
+    kind: 'road',
+    points: [
+      [0, 40],
+      [10, 40],
+    ],
+  };
+  const equator: Road = {
+    id: 'e',
+    ringId: 'equator',
+    kind: 'path',
+    points: [
+      [20, 0],
+      [20, 20],
+    ],
+  };
+
+  it('trouve une route par le milieu d un segment, pas seulement par ses sommets', () => {
+    expect(roadAtWorld(5, 40.5, [north, equator], turning, 0, 1)?.id).toBe('n');
+    expect(roadAtWorld(20.3, 10, [north, equator], turning, 0, 1)?.id).toBe('e');
+  });
+
+  it('cherche la route là où l anneau l a emmenée', () => {
+    // À t = 30, la route nord est affichée de 30° à 40°.
+    expect(roadAtWorld(5, 40, [north], turning, 30, 1)).toBeUndefined();
+    expect(roadAtWorld(35, 40, [north], turning, 30, 1)?.id).toBe('n');
+  });
+
+  it('ignore une route hors de portée', () => {
+    expect(roadAtWorld(5, 45, [north], turning, 0, 1)).toBeUndefined();
+  });
+
+  it('passe la couture du méridien ±180', () => {
+    const seam: Road = {
+      id: 's',
+      ringId: 'equator',
+      kind: 'road',
+      points: [
+        [175, 0],
+        [-175, 0],
+      ],
+    };
+    expect(roadAtWorld(179.9, 0.2, [seam], turning, 0, 1)?.id).toBe('s');
+  });
+});
+
+describe('retouche des routes', () => {
+  const a: Road = {
+    id: 'a',
+    ringId: 'equator',
+    kind: 'road',
+    points: [
+      [0, 0],
+      [1, 1],
+    ],
+  };
+  const b: Road = {
+    id: 'b',
+    ringId: 'equator',
+    kind: 'road',
+    points: [
+      [2, 2],
+      [3, 3],
+    ],
+  };
+
+  it('change le type de la seule route visée', () => {
+    const [first, second] = setRoadKind([a, b], 'b', 'sea-route');
+    expect(first).toBe(a);
+    expect(second?.kind).toBe('sea-route');
+  });
+
+  it('supprime la seule route visée', () => {
+    expect(removeRoad([a, b], 'a')).toEqual([b]);
   });
 });

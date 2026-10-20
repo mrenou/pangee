@@ -117,6 +117,24 @@ autres.
 Seule la mer est évitée : les lacs n'existent qu'en référentiel monde, à une date donnée, alors que le tracé
 est calculé et stocké en référentiel local.
 
+### Retoucher une route
+
+Hors tracé en cours, un clic sur une route l'ouvre dans l'inspecteur, qui en change le `kind` ou la supprime
+(`Suppr`). Un lieu l'emporte sur une route — c'est de là que partent les tracés — et `Maj` + clic force le
+début d'un tracé par-dessus une route existante. Le type des nouveaux tracés se règle à part. La recherche se
+fait en référentiel monde, comme pour les lieux, à distance de segment et non de sommet. Une route coupée par
+une faille est faite de deux `Road` : chaque tronçon se sélectionne et se supprime seul.
+
+Les identifiants des routes tracées portent un préfixe horodaté : le compteur de `buildRoads` repart de zéro à
+chaque chargement, et des identifiants réutilisés rendraient la sélection ambiguë.
+
+| Geste                          | Commande empilée                                |
+| ------------------------------ | ----------------------------------------------- |
+| Double-clic ou `Échap`         | `route tracée`, un tronçon par anneau traversé  |
+| `Retour arrière` pendant tracé | aucune : retire le dernier tronçon du brouillon |
+| Type de la route sélectionnée  | `type de route`                                 |
+| `Suppr` ou bouton Supprimer    | `route supprimée`                               |
+
 ## Réglages
 
 Panneau monde : vitesse signée et sens par anneau (`omegaDegPerDay`, préréglage « immobile »), `cutNorthLat`

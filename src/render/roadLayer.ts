@@ -17,6 +17,8 @@ import type { Road } from '@/model/world';
 
 const ROAD_INK = 0x6b4f32;
 const DRAFT_INK = 0x8a3f2a;
+/** Même rouge que le cercle du lieu sélectionné. */
+const SELECTED_INK = 0x8a2b1a;
 
 const STYLE: Readonly<Record<Road['kind'], { width: number; dash: number }>> = {
   road: { width: 1.8, dash: 0 },
@@ -28,6 +30,7 @@ export interface RoadLayer {
   readonly container: Container;
   setRoads: (roads: readonly Road[]) => void;
   setDraft: (points: readonly Point[]) => void;
+  setSelected: (id: string | undefined) => void;
   setTime: (ringConfig: RingConfig, tDays: number) => void;
   setViewport: (viewport: Viewport) => void;
   destroy: () => void;
@@ -40,6 +43,7 @@ export function createRoadLayer(): RoadLayer {
 
   let roads: readonly Road[] = [];
   let draft: readonly Point[] = [];
+  let selectedId: string | undefined;
   let ringConfig: RingConfig | undefined;
   let tDays = 0;
   let viewport: Viewport | undefined;
@@ -50,6 +54,17 @@ export function createRoadLayer(): RoadLayer {
 
     for (const road of roads) {
       const offset = ringOffsetDeg(ringConfig.rings[road.ringId], tDays, ringConfig.t0);
+      if (road.id === selectedId) {
+        // Un liseré large sous le tracé : la route garde son style propre.
+        strokePath(
+          graphics,
+          viewport,
+          road.points.map(([lon, lat]) => [wrapLon(lon + offset), lat] as Point),
+          { width: STYLE[road.kind].width + 4, dash: 0 },
+          SELECTED_INK,
+          0.45,
+        );
+      }
       strokePath(
         graphics,
         viewport,
@@ -86,6 +101,10 @@ export function createRoadLayer(): RoadLayer {
     },
     setDraft: (next) => {
       draft = next;
+      draw();
+    },
+    setSelected: (id) => {
+      selectedId = id;
       draw();
     },
     setTime: (config, days) => {
