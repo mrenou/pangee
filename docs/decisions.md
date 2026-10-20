@@ -209,6 +209,24 @@ destructeur). La zone de transition aux frontières reste écartée, comme en D3
 
 ---
 
+## 2026-10-20 — Publication sur GitHub Pages, après la CI (précise D12)
+
+**Décidé.** Le dépôt est public, sous `mrenou/pangee`, et publié sur GitHub Pages à
+<https://mrenou.github.io/pangee/>. La publication est un job `deploy` de `ci.yml`, qui dépend du job de
+vérification et ne tourne que sur `main`. Sur le runner d'intégration, le budget de temps de
+l'hydrologie vérifié par les tests de fumée passe de 1 s à 2,5 s ; il reste à 1 s en local.
+
+_Pourquoi :_ un dépôt public rend Pages gratuit, sans compte supplémentaire ni secret à gérer. Un
+workflow de publication séparé partait en parallèle de la CI et pouvait mettre en ligne un commit qui
+casse les tests. Le runner partagé à deux cœurs mesure ~1,2 s ce qui prend ~350 ms sur un poste : un
+budget de 1 s y échouait au hasard et aurait bloqué la publication.
+
+_Écarté :_ Cloudflare Pages — utile seulement pour un dépôt privé ou des en-têtes HTTP sur mesure,
+deux besoins absents ; un workflow `workflow_run` déclenché par la CI — un second fichier pour la même
+chaîne, et un statut de publication détaché de celui du commit.
+
+---
+
 ## Points à trancher plus tard
 
 Décisions volontairement repoussées, à documenter ici quand elles seront prises :
