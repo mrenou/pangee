@@ -9,6 +9,8 @@ import { del, get, keys, set } from 'idb-keyval';
 import { parseWorld, serializeWorld, type Result, type WorldDocument } from '@/model/file';
 
 const PREFIX = 'pangee:world:';
+/** Identifiant du dernier monde enregistré, rouvert au chargement de la page. */
+const LAST_KEY = 'pangee:last-world';
 
 /** Délai d'inactivité avant d'écrire sur le disque. */
 export const AUTOSAVE_DEBOUNCE_MS = 1500;
@@ -27,6 +29,13 @@ function keyOf(id: string): string {
 /** Écrit le monde dans IndexedDB, sous sa forme de fichier. */
 export async function saveWorld(doc: WorldDocument): Promise<void> {
   await set(keyOf(doc.id), serializeWorld(doc));
+  await set(LAST_KEY, doc.id);
+}
+
+/** Dernier monde enregistré, ou celui de l'identifiant donné à défaut. */
+export async function loadLastWorld(fallbackId: string): Promise<Result<WorldDocument>> {
+  const last = await get<string>(LAST_KEY);
+  return loadWorld(last ?? fallbackId);
 }
 
 export async function loadWorld(id: string): Promise<Result<WorldDocument>> {

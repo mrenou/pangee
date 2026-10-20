@@ -116,7 +116,9 @@ const migrations: Record<number, Migration> = { 1: v1ToV2, 2: v2ToV3 };
   relief.
 - Sauvegarde **debounced** après édition (quelques secondes d'inactivité, ou à la fin d'un geste de pinceau) ;
   les rasters ne sont réécrits que si leur couche a effectivement changé.
-- **Restauration au chargement de la page** : le dernier monde ouvert est rechargé automatiquement.
+- **Restauration au chargement de la page** : le dernier monde ouvert est rechargé automatiquement. Chaque
+  enregistrement note son `id` sous la clé `pangee:last-world` ; un monde importé est enregistré aussitôt
+  adopté, sans attendre une première édition, pour que le rechargement le retrouve.
 - Boutons explicites d'**export** (téléchargement d'un `.pangee`) et d'**import** (glisser-déposer ou
   sélecteur de fichier) — indépendants de l'autosave, qui n'est qu'un filet de sécurité.
 

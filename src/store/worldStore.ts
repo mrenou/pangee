@@ -10,7 +10,7 @@ import { DEFAULT_RING_CONFIG, type RingConfig, type RingId } from '@/model/ring'
 import { DEFAULT_SETTINGS, RASTER_2K, type Place, type RasterSize, type Road } from '@/model/world';
 import { generateWorldInWorker } from '@/workers/genClient';
 import { useHydroStore } from '@/store/hydroStore';
-import { createAutosave, downloadWorld, loadWorld, readWorldFile } from '@/store/persistence';
+import { createAutosave, downloadWorld, loadLastWorld, readWorldFile } from '@/store/persistence';
 import type { WorldDocument } from '@/model/file';
 import { FOG_DOWNSCALE } from '@/model/world';
 
@@ -186,13 +186,19 @@ export const useWorldStore = create<WorldState>((set, get) => ({
       return false;
     }
     get().adopt(parsed.value);
+    // Sans enregistrement immédiat, le rechargement rouvrirait le monde
+    // précédent tant que le MJ n'a rien édité dans celui-ci.
+    get().scheduleAutosave();
     return true;
   },
 
   restoreFromStorage: async () => {
-    const parsed = await loadWorld(get().worldId);
+    const parsed = await loadLastWorld(get().worldId);
     if (!parsed.ok) return false;
     get().adopt(parsed.value);
+    // Sans enregistrement immédiat, le rechargement rouvrirait le monde
+    // précédent tant que le MJ n'a rien édité dans celui-ci.
+    get().scheduleAutosave();
     return true;
   },
 
