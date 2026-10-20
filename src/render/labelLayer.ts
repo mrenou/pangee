@@ -43,6 +43,7 @@ const KIND_PRIORITY: Readonly<Record<PlaceKind, number>> = {
 export interface LabelLayer {
   readonly container: Container;
   setPlaces: (places: readonly Place[]) => void;
+  setSelected: (id: string | undefined) => void;
   setTime: (ringConfig: RingConfig, tDays: number) => void;
   setViewport: (viewport: Viewport) => void;
   setVisible: (visible: boolean) => void;
@@ -59,6 +60,7 @@ export function createLabelLayer(): LabelLayer {
 
   let places: readonly Place[] = [];
   let texts: Text[] = [];
+  let selectedId: string | undefined;
   let ringConfig: RingConfig | undefined;
   let tDays = 0;
   let viewport: Viewport | undefined;
@@ -72,6 +74,15 @@ export function createLabelLayer(): LabelLayer {
       stroke: { color: 0xe8dcc0, width: 3, join: 'round' },
       fontStyle: size >= 3 ? 'normal' : 'italic',
     });
+
+  /**
+   * Les textes ne dépendent que du nom et de l'importance : un lieu qu'on
+   * glisse garde les siens. Les recréer à chaque pas de souris coûterait un
+   * rendu de police par lieu et par image.
+   */
+  const sameTexts = (previous: readonly Place[], next: readonly Place[]): boolean =>
+    previous.length === next.length &&
+    next.every((place, i) => place.name === previous[i]?.name && place.size === previous[i]?.size);
 
   const rebuildTexts = (): void => {
     for (const text of texts) text.destroy();
@@ -106,6 +117,7 @@ export function createLabelLayer(): LabelLayer {
 
     const taken: Rect[] = [];
     const margin = 40;
+    let selectedDrawn = false;
 
     for (const { place, index } of order) {
       const lonWorld = localToWorldLon(place.lon, place.lat, ringConfig, tDays);
@@ -128,6 +140,7 @@ export function createLabelLayer(): LabelLayer {
 
       drawPlaceIcon(icons, place.kind, point.x, point.y, radius);
       taken.push(box);
+      if (place.id === selectedId) selectedDrawn = true;
 
       const text = texts[index];
       if (!text) continue;
@@ -144,13 +157,36 @@ export function createLabelLayer(): LabelLayer {
       text.visible = true;
       taken.push(labelRect(free.x, free.y, w, h));
     }
+
+    // Le lieu sélectionné est toujours dessiné et cerclé, même si
+    // l'anti-collision ou le zoom l'ont effacé : le MJ doit voir ce qu'il
+    // retouche, à commencer par le lieu qu'il vient de poser.
+    const selected = places.find((place) => place.id === selectedId);
+    if (selected) {
+      const lonWorld = localToWorldLon(selected.lon, selected.lat, ringConfig, tDays);
+      const point = worldToScreen(viewport, { lon: lonWorld, lat: selected.lat });
+      if (!selectedDrawn) {
+        drawPlaceIcon(icons, selected.kind, point.x, point.y, ICON_RADIUS_PX[selected.size]);
+      }
+      const radius = ICON_RADIUS_PX[selected.size] + 5;
+      icons
+        .circle(point.x, point.y, radius)
+        .stroke({ width: 2, color: 0x8a2b1a, alpha: 0.9 })
+        .circle(point.x, point.y, radius + 2.5)
+        .stroke({ width: 1, color: 0xe8dcc0, alpha: 0.9 });
+    }
   };
 
   return {
     container,
     setPlaces: (next) => {
+      const keep = sameTexts(places, next);
       places = next;
-      rebuildTexts();
+      if (!keep) rebuildTexts();
+      draw();
+    },
+    setSelected: (id) => {
+      selectedId = id;
       draw();
     },
     setTime: (config, days) => {

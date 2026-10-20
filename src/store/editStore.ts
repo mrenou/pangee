@@ -9,7 +9,8 @@
 import { create } from 'zustand';
 import { Biome } from '@/climate';
 import type { BrushShape, ReliefBrush, ReliefMode } from '@/edit/brush';
-import { History, type Command, type EditTarget } from '@/edit/history';
+import { History, placesCommand, type Command, type EditTarget } from '@/edit/history';
+import { removePlace, updatePlace, type PlaceEdit } from '@/edit/places';
 import { useWorldStore } from '@/store/worldStore';
 
 export type Tool = 'pan' | 'relief' | 'biome' | 'place' | 'road';
@@ -45,6 +46,9 @@ interface EditState {
   relief: ReliefBrush;
   biomeShape: BrushShape;
   biomeValue: number;
+  /** Lieu ouvert dans l'inspecteur. Un identifiant qui ne correspond plus à
+   * aucun lieu (après une annulation, par exemple) vaut absence de sélection. */
+  selectedPlaceId: string | undefined;
   /** Le monde a-t-il reçu au moins une commande ? Conditionne l'avertissement
    * avant régénération. */
   edited: boolean;
@@ -57,6 +61,10 @@ interface EditState {
   setRelief: (patch: Partial<ReliefBrush>) => void;
   setBiomeShape: (patch: Partial<BrushShape>) => void;
   setBiomeValue: (value: number) => void;
+  selectPlace: (id: string | undefined) => void;
+  /** Retouche le lieu sélectionné, en une commande annulable. */
+  editPlace: (edit: PlaceEdit, label: string) => void;
+  deleteSelectedPlace: () => void;
 
   /** Applique une commande déjà exécutée sur la cible et l'empile. */
   record: (command: Command) => void;
@@ -85,6 +93,7 @@ export const useEditStore = create<EditState>((set, get) => ({
   relief: DEFAULT_RELIEF,
   biomeShape: { radius: 10, falloff: 0 },
   biomeValue: Biome.TemperateForest,
+  selectedPlaceId: undefined,
   edited: false,
   canUndo: false,
   canRedo: false,
@@ -95,6 +104,30 @@ export const useEditStore = create<EditState>((set, get) => ({
   setRelief: (patch) => set((s) => ({ relief: { ...s.relief, ...patch } })),
   setBiomeShape: (patch) => set((s) => ({ biomeShape: { ...s.biomeShape, ...patch } })),
   setBiomeValue: (biomeValue) => set({ biomeValue }),
+  selectPlace: (selectedPlaceId) => set({ selectedPlaceId }),
+
+  editPlace: (edit, label) => {
+    const target = editTarget();
+    const id = get().selectedPlaceId;
+    if (!target || id === undefined) return;
+    const before = target.places;
+    const command = placesCommand(label, before, updatePlace(before, id, edit));
+    command.apply(target);
+    get().record(command);
+    useWorldStore.getState().scheduleAutosave();
+  },
+
+  deleteSelectedPlace: () => {
+    const target = editTarget();
+    const id = get().selectedPlaceId;
+    if (!target || id === undefined) return;
+    const before = target.places;
+    const command = placesCommand('lieu supprimé', before, removePlace(before, id));
+    command.apply(target);
+    get().record(command);
+    set({ selectedPlaceId: undefined });
+    useWorldStore.getState().scheduleAutosave();
+  },
 
   record: (command) => {
     history.push(command);

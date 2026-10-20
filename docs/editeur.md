@@ -70,9 +70,22 @@ cellules du disque, l'adoucissement visuel est l'affaire du rendu.
 
 ## Lieux
 
-Poser (clic), déplacer (glisser), renommer en ligne, éditer `kind`, `size`, icône et `notes`. `ringId` n'est
-jamais choisi par l'utilisateur : il est déduit par `ringOf(lat)` au moment où le lieu est posé, et recalculé
-à chaque déplacement. Un lieu appartient à un seul anneau. Une ville à cheval sur une coupure se modélise par
+Outil **Lieu** : un clic sur du vide pose un lieu et l'ouvre dans l'inspecteur ; un clic sur un lieu existant
+l'ouvre, un glisser le déplace. L'inspecteur édite le nom, `kind`, `size` et les `notes` ; `Suppr` (hors champ
+de saisie) ou le bouton dédié supprime le lieu sélectionné. `ringId` n'est jamais choisi par l'utilisateur : il
+est déduit par `ringOf(lat)` au moment où le lieu est posé, et recalculé à chaque déplacement.
+
+| Geste                       | Commande empilée                                  |
+| --------------------------- | ------------------------------------------------- |
+| Clic dans le vide           | `lieu posé`                                       |
+| Glisser un lieu             | `lieu déplacé`, une seule pour tout le geste      |
+| Nom, notes                  | une commande à la sortie du champ, pas par frappe |
+| Type, importance            | une commande par choix                            |
+| `Suppr` ou bouton Supprimer | `lieu supprimé`                                   |
+
+Le lieu sous le curseur se cherche en **référentiel monde**, là où le MJ le voit : de part et d'autre d'une
+coupure, deux longitudes locales n'ont plus rien de commun dès que les anneaux ont tourné. Le lieu sélectionné
+est cerclé sur la carte, même quand l'anti-collision a masqué son icône. Un lieu appartient à un seul anneau. Une ville à cheval sur une coupure se modélise par
 deux `Place` (un par côté) et, en v1.1, une emprise `urban` peinte des deux côtés.
 
 ## Routes
