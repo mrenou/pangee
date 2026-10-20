@@ -23,6 +23,7 @@ function target(): EditTarget {
     fog: new Uint8Array(8),
     places: [],
     roads: [],
+    creatures: [],
   };
 }
 

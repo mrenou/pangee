@@ -15,6 +15,7 @@ import {
   type ReliefBrush,
 } from '@/edit/brush';
 import {
+  creaturesCommand,
   rasterCommand,
   placesCommand,
   roadsCommand,
@@ -23,12 +24,13 @@ import {
 } from '@/edit/history';
 import { GestureRecorder } from '@/edit/patch';
 import { movePlace, placeAtWorld } from '@/edit/places';
+import { buildCreature, creatureAtWorld, worldToRingLocal } from '@/edit/creatures';
 import { buildRoads, roadAtWorld, snapToPlace, type Point } from '@/edit/roads';
 import { nameForPlace } from '@/gen/names';
 import { findRoadPath } from '@/gen/roadPath';
 import { hashSeed } from '@/gen/rng';
 import { columnOfLon, rowOfLat } from '@/model/coords';
-import { ringOf, type RingConfig } from '@/model/ring';
+import { ringOf, type RingConfig, type RingId } from '@/model/ring';
 import {
   rectFromCorners,
   screenToLocal,
@@ -37,7 +39,7 @@ import {
   type Viewport,
   type WorldRect,
 } from '@/model/viewport';
-import type { Place, RoadKind } from '@/model/world';
+import type { CreatureKind, Place, RoadKind } from '@/model/world';
 import type { Tool } from '@/store/editStore';
 
 export interface EditContext {
@@ -53,6 +55,7 @@ export interface EditContext {
   /** Outil route : faire suivre le relief à chaque nouveau segment. */
   readonly getRoadFollowsTerrain: () => boolean;
   readonly getNewRoadKind: () => RoadKind;
+  readonly getNewCreatureKind: () => CreatureKind;
   readonly getSeaLevelM: () => number;
   readonly getRadiusKm: () => number;
   /** Zone du raster local modifiée par le dernier pas, à téléverser. */
@@ -62,6 +65,9 @@ export interface EditContext {
   readonly onDraftRoad: (points: readonly Point[]) => void;
   /** Lieu ouvert dans l'inspecteur, ou aucun. */
   readonly onSelectPlace: (id: string | undefined) => void;
+  /** Trajectoire de créature en cours, dans le référentiel local de son anneau. */
+  readonly onDraftCreature: (points: readonly Point[], ringId: RingId | undefined) => void;
+  readonly onSelectCreature: (id: string | undefined) => void;
   /** Cadre d'export tracé à la souris, en référentiel monde. */
   readonly onExportRect: (rect: WorldRect) => void;
   /** Route ouverte dans l'inspecteur, ou aucune. */
@@ -104,6 +110,9 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
   /** Longueur du brouillon avant chaque clic : `Retour arrière` retire le dernier tronçon entier. */
   let legs: number[] = [];
   let drag: PlaceDrag | undefined;
+  /** Trajectoire en cours : tous ses points dans le référentiel de l'anneau du premier. */
+  let creatureDraft: Point[] = [];
+  let creatureRing: RingId | undefined;
   /** Premier coin du cadre d'export, pendant le geste. */
   let frameStart: GeoPoint | undefined;
 
@@ -226,6 +235,43 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
       return;
     }
 
+    if (tool === 'creature') {
+      event.preventDefault();
+      const world = screenToWorld(context.getViewport(), screenOf(event));
+      if (creatureDraft.length === 0 && !event.shiftKey) {
+        const viewport = context.getViewport();
+        const hit = creatureAtWorld(
+          world.lon,
+          world.lat,
+          target.creatures,
+          context.getRingConfig(),
+          context.getTDays(),
+          SNAP_PX / viewport.pixelsPerDegree,
+        );
+        if (hit) {
+          context.onSelectCreature(hit.id);
+          return;
+        }
+      }
+      context.onSelectCreature(undefined);
+      // Une trajectoire suit un seul anneau, celui où elle commence : chaque
+      // point est exprimé dans son référentiel, même s'il est posé ailleurs.
+      creatureRing ??= ringOf(world.lat, context.getRingConfig());
+      const lonLocal = worldToRingLocal(
+        world.lon,
+        creatureRing,
+        context.getRingConfig(),
+        context.getTDays(),
+      );
+      const last = creatureDraft[creatureDraft.length - 1];
+      // Le double-clic qui termine pose deux fois le même point.
+      if (!last || last[0] !== lonLocal || last[1] !== world.lat) {
+        creatureDraft = [...creatureDraft, [lonLocal, world.lat]];
+      }
+      context.onDraftCreature(creatureDraft, creatureRing);
+      return;
+    }
+
     if (tool === 'export') {
       // Le cadre est pris en référentiel monde : c'est ce que le MJ voit, et
       // ce que l'export rendra à la date courante.
@@ -336,22 +382,56 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
     context.onDraftRoad(draft);
   };
 
+  const finishCreature = (): void => {
+    const target = context.getTarget();
+    const ringId = creatureRing;
+    const points = creatureDraft;
+    creatureDraft = [];
+    creatureRing = undefined;
+    context.onDraftCreature([], undefined);
+    if (!target || ringId === undefined) return;
+
+    const id = `creature-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
+    const creature = buildCreature(id, context.getNewCreatureKind(), ringId, points);
+    if (!creature) return;
+    const before = target.creatures;
+    const command = creaturesCommand('créature ajoutée', before, [...before, creature]);
+    command.apply(target);
+    context.onCommand(command);
+    context.onSelectCreature(id);
+  };
+
   const onDoubleClick = (event: MouseEvent): void => {
-    if (context.getTool() !== 'road') return;
-    event.preventDefault();
-    finishRoad();
+    const tool = context.getTool();
+    if (tool === 'road') {
+      event.preventDefault();
+      finishRoad();
+    } else if (tool === 'creature') {
+      event.preventDefault();
+      finishCreature();
+    }
   };
 
   const onKeyDown = (event: KeyboardEvent): void => {
     if (event.key === 'Escape' && context.getTool() === 'road') finishRoad();
+    if (event.key === 'Escape' && context.getTool() === 'creature') finishCreature();
     if (isTyping(event) || (event.key !== 'Delete' && event.key !== 'Backspace')) return;
     const tool = context.getTool();
+    if (tool === 'creature' && creatureDraft.length > 0) {
+      event.preventDefault();
+      if (event.key === 'Backspace') {
+        creatureDraft = creatureDraft.slice(0, -1);
+        if (creatureDraft.length === 0) creatureRing = undefined;
+        context.onDraftCreature(creatureDraft, creatureRing);
+      }
+      return;
+    }
     if (tool === 'road' && draft.length > 0) {
       event.preventDefault();
       if (event.key === 'Backspace') dropLastLeg();
       return;
     }
-    if (tool === 'place' || tool === 'road') {
+    if (tool === 'place' || tool === 'road' || tool === 'creature') {
       event.preventDefault();
       context.onDeleteSelection();
     }

@@ -8,10 +8,17 @@
  */
 
 import { unzipSync, zipSync } from 'fflate';
-import { validateRingConfig, type RingConfig } from '@/model/ring';
-import type { Place, RasterSize, Road } from '@/model/world';
+import { RING_IDS, validateRingConfig, type RingConfig } from '@/model/ring';
+import {
+  CREATURE_KINDS,
+  type Creature,
+  type Place,
+  type RasterSize,
+  type Road,
+} from '@/model/world';
 
-export const FORMAT_VERSION = 1;
+/** Version 2 : ajout des créatures. */
+export const FORMAT_VERSION = 2;
 export const APP_NAME = 'pangee';
 
 /** Plage couverte par la quantification du relief, en mètres. */
@@ -36,6 +43,7 @@ export interface WorldDocument {
   readonly fog: Uint8Array;
   readonly places: readonly Place[];
   readonly roads: readonly Road[];
+  readonly creatures: readonly Creature[];
   readonly createdAt?: string;
 }
 
@@ -79,6 +87,8 @@ interface WorldFile {
   };
   readonly places: readonly Place[];
   readonly roads: readonly Road[];
+  /** Absent avant la version 2. */
+  readonly creatures?: readonly Creature[];
 }
 
 export interface SerializeOptions {
@@ -147,6 +157,7 @@ export function serializeWorld(doc: WorldDocument, options: SerializeOptions = {
     },
     places: doc.places,
     roads: doc.roads,
+    creatures: doc.creatures,
   };
 
   const heightBytes =
@@ -203,6 +214,11 @@ export function parseWorld(bytes: Uint8Array): Result<WorldDocument> {
   const migrated = migrate(file);
   if (!migrated.ok) return migrated;
   const current = migrated.value;
+
+  const creatures = current.creatures ?? [];
+  if (!Array.isArray(creatures) || !creatures.every(isCreature)) {
+    return fail('world.json contient une créature mal formée.');
+  }
 
   const ringErrors = validateRingConfig(current.rings);
   if (ringErrors.length > 0) {
@@ -262,9 +278,33 @@ export function parseWorld(bytes: Uint8Array): Result<WorldDocument> {
       fog: new Uint8Array(copyBuffer(fogBytes)),
       places: current.places ?? [],
       roads: current.roads ?? [],
+      creatures,
       createdAt: current.createdAt,
     },
   };
+}
+
+/** Une créature lue d'un fichier : on n'adopte que ce qui a la bonne forme. */
+function isCreature(value: unknown): value is Creature {
+  if (typeof value !== 'object' || value === null) return false;
+  const c = value as Record<string, unknown>;
+  return (
+    typeof c.id === 'string' &&
+    typeof c.name === 'string' &&
+    (CREATURE_KINDS as readonly unknown[]).includes(c.kind) &&
+    (RING_IDS as readonly unknown[]).includes(c.ringId) &&
+    typeof c.speedDegPerS === 'number' &&
+    Number.isFinite(c.speedDegPerS) &&
+    typeof c.loop === 'boolean' &&
+    Array.isArray(c.points) &&
+    c.points.length >= 2 &&
+    c.points.every(
+      (p: unknown) =>
+        Array.isArray(p) &&
+        p.length === 2 &&
+        p.every((n: unknown) => typeof n === 'number' && Number.isFinite(n)),
+    )
+  );
 }
 
 /** Une vue typée doit posséder son tampon : celui du zip peut être une tranche. */
@@ -272,12 +312,7 @@ function copyBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
-/**
- * Migrations chaînées v(n) → v(n+1).
- *
- * Il n'y a encore qu'une version : la fonction existe pour que la première
- * migration réelle n'ait rien à réorganiser.
- */
+/** Migrations chaînées v(n) → v(n+1), chacune pure. Voir docs/fichier-pangee.md. */
 function migrate(file: WorldFile): Result<WorldFile> {
   let current = file;
   while (current.formatVersion < FORMAT_VERSION) {
@@ -288,4 +323,7 @@ function migrate(file: WorldFile): Result<WorldFile> {
   return { ok: true, value: current };
 }
 
-const MIGRATIONS: Readonly<Record<number, (file: WorldFile) => WorldFile>> = {};
+const MIGRATIONS: Readonly<Record<number, (file: WorldFile) => WorldFile>> = {
+  // v1 → v2 : les créatures font leur entrée, aucune n'existait.
+  1: (file) => ({ ...file, formatVersion: 2, creatures: [] }),
+};

@@ -6,7 +6,7 @@
  * Voir docs/editeur.md.
  */
 
-import type { Place, RasterSize, Road } from '@/model/world';
+import type { Creature, Place, RasterSize, Road } from '@/model/world';
 import { applyPatch, patchBytes, type RasterPatch } from '@/edit/patch';
 
 /** L'état que les commandes savent modifier. */
@@ -19,6 +19,7 @@ export interface EditTarget {
   readonly fog: Uint8Array;
   places: readonly Place[];
   roads: readonly Road[];
+  creatures: readonly Creature[];
 }
 
 export interface Command {
@@ -106,6 +107,25 @@ export function roadsCommand(
     },
     revert: (target) => {
       target.roads = before;
+    },
+  };
+}
+
+export function creaturesCommand(
+  label: string,
+  before: readonly Creature[],
+  after: readonly Creature[],
+): Command {
+  const points = [...before, ...after].reduce((n, c) => n + c.points.length, 0);
+  return {
+    label,
+    kind: 'vector',
+    bytes: points * 16 + 128,
+    apply: (target) => {
+      target.creatures = after;
+    },
+    revert: (target) => {
+      target.creatures = before;
     },
   };
 }

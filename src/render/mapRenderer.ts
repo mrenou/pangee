@@ -31,7 +31,7 @@ import { columnOfLon, rowOfLat } from '@/model/coords';
 import type { RingConfig } from '@/model/ring';
 import type { RasterSize } from '@/model/world';
 import type { RiverNetwork } from '@/hydro/rivers';
-import type { Place, Road } from '@/model/world';
+import type { Creature, Place, Road } from '@/model/world';
 import type { Point } from '@/edit/roads';
 import { TERRAIN_FRAGMENT, TERRAIN_VERTEX } from '@/render/terrainShader';
 import { biomePaletteArray } from '@/render/palette';
@@ -42,6 +42,8 @@ import { createLabelLayer } from '@/render/labelLayer';
 import { createRiverLayer } from '@/render/riverLayer';
 import { createRoadLayer } from '@/render/roadLayer';
 import { createVolcanoLayer } from '@/render/volcanoLayer';
+import { createCreatureLayer } from '@/render/creatureLayer';
+import type { RingId } from '@/model/ring';
 import { uploadRegion, type SubImageRegion } from '@/render/textureUpdate';
 import { createSymbolLayer, type TerrainSample } from '@/render/symbolLayer';
 import {
@@ -98,6 +100,11 @@ export interface MapRenderer {
   setSelectedRoad: (id: string | undefined) => void;
   /** Tracé en cours, pas encore validé. */
   setDraftRoad: (points: readonly Point[]) => void;
+  /** Créatures décoratives, en référentiel local de leur anneau. */
+  setCreatures: (creatures: readonly Creature[]) => void;
+  /** Trajectoires visibles et créature sélectionnée, sous l'outil créature. */
+  setCreatureEditing: (editing: boolean, selectedId: string | undefined) => void;
+  setDraftCreature: (points: readonly Point[], ringId: RingId | undefined) => void;
   /**
    * Renvoie au GPU la zone du relief modifiée par un coup de pinceau.
    * `undefined` réuploade toute la couche.
@@ -223,6 +230,15 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
   const volcanoLayer = createVolcanoLayer();
   app.stage.addChild(volcanoLayer.container);
 
+  // Les créatures volent au-dessus de la carte, mais sous le brouillard.
+  const creatureLayer = createCreatureLayer();
+  app.stage.addChild(creatureLayer.container);
+  let creatureEditing = false;
+  let creatureDraft: { points: readonly Point[]; ringId: RingId | undefined } = {
+    points: [],
+    ringId: undefined,
+  };
+
   // Le brouillard recouvre tout, libellés compris : à l'export, rien de ce qui
   // est caché ne doit transparaître.
   const fogLayer = createFogLayer(uniforms, geometry);
@@ -286,6 +302,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     uniforms.update();
     riverLayer.setAnimationTime(animationTimeS);
     volcanoLayer.setAnimationTime(animationTimeS);
+    creatureLayer.setAnimationTime(animationTimeS);
   };
   let animated = false;
   const setAnimated = (next: boolean): void => {
@@ -301,6 +318,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     uniforms.update();
     riverLayer.setAnimationTime(undefined);
     volcanoLayer.setAnimationTime(undefined);
+    creatureLayer.setAnimationTime(undefined);
     invalidate();
   };
 
@@ -332,6 +350,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     roadLayer.setViewport(v);
     labelLayer.setViewport(v);
     volcanoLayer.setViewport(v);
+    creatureLayer.setViewport(v);
   };
 
   const setViewport = (viewport: Viewport): void => {
@@ -381,6 +400,8 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     labelLayer.setSelected(undefined);
     roadLayer.setSelected(undefined);
     roadLayer.setDraft([]);
+    creatureLayer.setEditing(false);
+    creatureLayer.setDraft([], undefined);
     fogLayer.setMode(request.applyFog ? 'export' : 'off');
     uniforms.uniforms.uShowFaults = request.showFaults ? 1 : 0;
     uniforms.update();
@@ -428,6 +449,8 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
       labelLayer.setSelected(selectedPlace);
       roadLayer.setSelected(selectedRoad);
       roadLayer.setDraft(draftRoad);
+      creatureLayer.setEditing(creatureEditing);
+      creatureLayer.setDraft(creatureDraft.points, creatureDraft.ringId);
       exportFrame.visible = true;
       resizeMesh();
       if (screenViewport) applyViewport(screenViewport);
@@ -453,6 +476,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     symbolLayer.setVisible(view.bookStyle);
     labelLayer.setTime(view.ringConfig, view.tDays);
     volcanoLayer.setTime(view.ringConfig, view.tDays);
+    creatureLayer.setTime(view.ringConfig, view.tDays);
     roadLayer.setTime(view.ringConfig, view.tDays);
     symbolLayer.setTime(view.ringConfig, view.tDays);
     riverLayer.setTime(view.ringConfig, view.tDays);
@@ -551,6 +575,16 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
       draftRoad = next;
       roadLayer.setDraft(next);
     },
+    setCreatures: (next) => creatureLayer.setCreatures(next),
+    setCreatureEditing: (editing, selectedId) => {
+      creatureEditing = editing;
+      creatureLayer.setEditing(editing);
+      creatureLayer.setSelected(selectedId);
+    },
+    setDraftCreature: (points, ringId) => {
+      creatureDraft = { points, ringId };
+      creatureLayer.setDraft(points, ringId);
+    },
     setSelectedRoad: (id) => {
       selectedRoad = id;
       roadLayer.setSelected(id);
@@ -600,6 +634,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
       symbolLayer.destroy();
       labelLayer.destroy();
       volcanoLayer.destroy();
+      creatureLayer.destroy();
 
       // L'application d'abord, les textures ensuite : les libérer tant que le
       // shader les référence encore laisse un groupe de liaison invalide, et

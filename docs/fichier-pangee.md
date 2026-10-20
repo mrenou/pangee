@@ -42,6 +42,7 @@ interface WorldFile {
   rasters: RasterIndex;
   places: Place[];
   roads: Road[];
+  creatures: Creature[]; // depuis la version 2, voir le modèle du monde
 }
 
 interface RasterIndex {
@@ -89,6 +90,16 @@ navigateur actuelles. Un fichier annonçant autre chose que `'little'` est refus
 ## Versions et migrations
 
 `formatVersion` est un entier, incrémenté à chaque changement incompatible.
+
+| Version | Changement           | Migration depuis la précédente |
+| ------- | -------------------- | ------------------------------ |
+| 1       | format initial       | —                              |
+| 2       | ajout de `creatures` | `creatures: []`                |
+
+Ajouter un champ suffit à justifier une version : une application v1 qui relirait puis réenregistrerait un
+fichier v2 effacerait les créatures sans prévenir. Elle refuse désormais le fichier, avec un message clair.
+Chaque créature est vérifiée à l'import (type connu, anneau connu, au moins deux points finis) ; une seule mal
+formée fait refuser le fichier.
 
 ```ts
 export const CURRENT_FORMAT_VERSION = 3;

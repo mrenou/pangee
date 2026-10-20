@@ -182,7 +182,7 @@ export function roadAtWorld(
 }
 
 /** Distance de l'origine au segment [a, b]. */
-function distanceToSegment(a: Point, b: Point): number {
+export function distanceToSegment(a: Point, b: Point): number {
   const dx = b[0] - a[0];
   const dy = b[1] - a[1];
   const lengthSq = dx * dx + dy * dy;

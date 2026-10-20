@@ -31,6 +31,34 @@ export interface Road {
   readonly kind: RoadKind;
 }
 
+export type CreatureKind = 'dragon' | 'ship' | 'bird' | 'serpent';
+
+export const CREATURE_KINDS = [
+  'dragon',
+  'ship',
+  'bird',
+  'serpent',
+] as const satisfies readonly CreatureKind[];
+
+/**
+ * Créature décorative qui parcourt une trajectoire. Ses points sont en
+ * référentiel local de son anneau : la trajectoire tourne avec lui. Elle ne
+ * dépend pas de la date de campagne mais de l'horloge d'animation — c'est un
+ * ornement, pas un fait du monde.
+ */
+export interface Creature {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: CreatureKind;
+  readonly ringId: RingId;
+  /** Points [lonLocal, lat] de la trajectoire, au moins deux. */
+  readonly points: readonly (readonly [number, number])[];
+  /** Vitesse le long de la trajectoire, en degrés par seconde d'animation. */
+  readonly speedDegPerS: number;
+  /** Boucle fermée, ou aller-retour entre le premier et le dernier point. */
+  readonly loop: boolean;
+}
+
 export interface RasterSize {
   readonly width: number;
   readonly height: number;
@@ -80,6 +108,7 @@ export interface World {
   readonly layers: WorldLayers;
   readonly places: readonly Place[];
   readonly roads: readonly Road[];
+  readonly creatures: readonly Creature[];
   readonly seed: string;
 }
 

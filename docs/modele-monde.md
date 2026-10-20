@@ -185,6 +185,28 @@ Un `Place` appartient à un seul anneau, donc une ville tranchée se représente
 
 Le nommage des deux moitiés reste un point ouvert, voir [les décisions](decisions.md).
 
+### Créatures
+
+Ornements animés, pas faits du monde : un dragon, un navire, des oiseaux ou un serpent de mer qui parcourent
+une trajectoire en boucle ou en aller-retour.
+
+```ts
+interface Creature {
+  id: string;
+  name: string;
+  kind: 'dragon' | 'ship' | 'bird' | 'serpent';
+  ringId: RingId; // anneau du premier point posé
+  points: [lonLocal: number, lat: number][]; // au moins deux, dans le référentiel de ringId
+  speedDegPerS: number; // degrés par seconde d'animation
+  loop: boolean; // boucle fermée, sinon aller-retour
+}
+```
+
+Une trajectoire est exprimée **tout entière** dans le référentiel local de son anneau, même si un point est
+posé au-delà d'une coupure : elle tourne d'un bloc avec lui, sans scission. C'est acceptable parce que la
+créature n'appartient à aucune couche du monde. Sa position dépend de l'horloge d'animation, jamais de la
+date de campagne : un même jour de campagne montre le dragon où l'horloge l'a mené.
+
 ## Points ouverts
 
 - Rayon planétaire et calendrier définitifs (longueur de l'année, noms des mois).
