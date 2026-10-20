@@ -42,6 +42,8 @@ function pushAll(renderer: MapRenderer): void {
   renderer.setRoads(world.roads);
 
   if (world.height) renderer.setHeight(world.rasterSize, world.height);
+  if (world.fog) renderer.setFog(world.fogSize, world.fog);
+  renderer.setFogMode(fogModeOf(useEditStore.getState()));
 
   const { water } = useHydroStore.getState();
   if (water) {
@@ -63,6 +65,11 @@ function pushAll(renderer: MapRenderer): void {
       water.tDays,
     );
   }
+}
+
+/** Le voile n'apparaît que sous l'outil brouillard, ou si le MJ l'a demandé. */
+function fogModeOf(edit: { tool: string; showFogPreview: boolean }): 'off' | 'preview' {
+  return edit.tool === 'fog' || edit.showFogPreview ? 'preview' : 'off';
 }
 
 /**
@@ -109,6 +116,7 @@ export function MapCanvas() {
         getRelief: () => useEditStore.getState().relief,
         getBiomeShape: () => useEditStore.getState().biomeShape,
         getBiomeValue: () => useEditStore.getState().biomeValue,
+        getFogBrush: () => useEditStore.getState().fogBrush,
         getRoadFollowsTerrain: () => useEditStore.getState().roadFollowsTerrain,
         getNewRoadKind: () => useEditStore.getState().newRoadKind,
         getSeaLevelM: () => useWorldStore.getState().seaLevelM,
@@ -117,12 +125,14 @@ export function MapCanvas() {
           // Le terrain doit suivre le pinceau sans attendre : on réuploade au
           // fil du geste, l'hydrologie ne sera recalculée qu'à la fin.
           if (layer === 'height') created.refreshHeight();
+          if (layer === 'fog') created.refreshFog();
         },
         onCommand: (command) => {
           useEditStore.getState().record(command);
           // Un lieu ou une route ne justifie ni un réupload du relief ni un
           // recalcul de l'eau.
           if (command.kind === 'raster') useWorldStore.getState().bumpHeightVersion();
+          // Le brouillard est déjà à jour sur le GPU, peint au fil du geste.
           useWorldStore.getState().scheduleAutosave();
         },
         onDraftRoad: (points) => created.setDraftRoad(points),
@@ -183,6 +193,19 @@ export function MapCanvas() {
   useEffect(() => {
     rendererRef.current?.setSelectedPlace(tool === 'place' ? selectedPlaceId : undefined);
   }, [tool, selectedPlaceId]);
+
+  // Le pinceau réécrit le brouillard en place ; seuls un nouveau monde et
+  // une annulation imposent de le renvoyer.
+  const fogVersion = useWorldStore((s) => s.fogVersion);
+  useEffect(() => {
+    const { fog, fogSize } = useWorldStore.getState();
+    if (fog) rendererRef.current?.setFog(fogSize, fog);
+  }, [fogVersion]);
+
+  const showFogPreview = useEditStore((s) => s.showFogPreview);
+  useEffect(() => {
+    rendererRef.current?.setFogMode(fogModeOf({ tool, showFogPreview }));
+  }, [tool, showFogPreview]);
 
   const selectedRoadId = useEditStore((s) => s.selectedRoadId);
   useEffect(() => {

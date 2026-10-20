@@ -42,6 +42,14 @@ export const RASTER_4K: RasterSize = { width: 4096, height: 2048 };
 /** Facteur de réduction du brouillard par rapport au relief. */
 export const FOG_DOWNSCALE = 8;
 
+/** Taille du raster de brouillard pour un relief donné. */
+export function fogSizeOf(size: RasterSize): RasterSize {
+  return {
+    width: Math.ceil(size.width / FOG_DOWNSCALE),
+    height: Math.ceil(size.height / FOG_DOWNSCALE),
+  };
+}
+
 /** Couches raster, toutes en référentiel local et couvrant la planète entière. */
 export interface WorldLayers {
   readonly size: RasterSize;
@@ -78,7 +86,8 @@ export interface World {
 /** Alloue des couches vides à la taille demandée. */
 export function createEmptyLayers(size: RasterSize): WorldLayers {
   const cells = size.width * size.height;
-  const fogCells = Math.ceil(size.width / FOG_DOWNSCALE) * Math.ceil(size.height / FOG_DOWNSCALE);
+  const fogSize = fogSizeOf(size);
+  const fogCells = fogSize.width * fogSize.height;
   return {
     size,
     height: new Float32Array(cells),

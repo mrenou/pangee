@@ -6,7 +6,14 @@
  * unique. Voir docs/editeur.md.
  */
 
-import { paintBiome, paintRelief, type BrushShape, type ReliefBrush } from '@/edit/brush';
+import {
+  paintBiome,
+  paintFog,
+  paintRelief,
+  type BrushShape,
+  type FogBrush,
+  type ReliefBrush,
+} from '@/edit/brush';
 import {
   rasterCommand,
   placesCommand,
@@ -35,13 +42,14 @@ export interface EditContext {
   readonly getRelief: () => ReliefBrush;
   readonly getBiomeShape: () => BrushShape;
   readonly getBiomeValue: () => number;
+  readonly getFogBrush: () => FogBrush;
   /** Outil route : faire suivre le relief à chaque nouveau segment. */
   readonly getRoadFollowsTerrain: () => boolean;
   readonly getNewRoadKind: () => RoadKind;
   readonly getSeaLevelM: () => number;
   readonly getRadiusKm: () => number;
   /** Zone du raster local modifiée par le dernier pas, à téléverser. */
-  readonly onRasterTouched: (layer: 'height' | 'biomeOverride') => void;
+  readonly onRasterTouched: (layer: 'height' | 'biomeOverride' | 'fog') => void;
   readonly onCommand: (command: Command) => void;
   /** Tracé en cours, pour que le rendu puisse l'afficher. */
   readonly onDraftRoad: (points: readonly Point[]) => void;
@@ -141,6 +149,17 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
     if (tool === 'relief') {
       paintRelief(target.size, target.height, x, y, context.getRelief(), recorder);
       context.onRasterTouched('height');
+    } else if (tool === 'fog') {
+      // Le brouillard a sa propre grille, plus grossière que le relief.
+      paintFog(
+        target.fogSize,
+        target.fog,
+        columnOfLon(lon, target.fogSize.width),
+        rowOfLat(lat, target.fogSize.height),
+        context.getFogBrush(),
+        recorder,
+      );
+      context.onRasterTouched('fog');
     } else if (tool === 'biome') {
       paintBiome(
         target.size,
@@ -164,16 +183,15 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
     }
 
     const layer = recorder.layer;
-    const source = layer === 'height' ? target.height : target.biomeOverride;
+    const source =
+      layer === 'height' ? target.height : layer === 'fog' ? target.fog : target.biomeOverride;
     const patch = recorder.finish(source);
+    const label =
+      layer === 'height' ? 'coup de pinceau' : layer === 'fog' ? 'brouillard peint' : 'biome peint';
 
     // Tous les pas du geste ne font qu'une entrée de pile : un Ctrl+Z annule le
     // trait, pas un pas de souris.
-    if (patch) {
-      context.onCommand(
-        rasterCommand(layer === 'height' ? 'coup de pinceau' : 'biome peint', patch),
-      );
-    }
+    if (patch) context.onCommand(rasterCommand(label, patch));
 
     painting = false;
     recorder = undefined;
@@ -185,11 +203,14 @@ export function attachEditControls(element: HTMLElement, context: EditContext): 
     const target = context.getTarget();
     if (!target) return;
 
-    if (tool === 'relief' || tool === 'biome') {
+    if (tool === 'relief' || tool === 'biome' || tool === 'fog') {
       event.preventDefault();
       element.setPointerCapture(event.pointerId);
       painting = true;
-      recorder = new GestureRecorder(tool === 'relief' ? 'height' : 'biomeOverride', target.size);
+      recorder =
+        tool === 'fog'
+          ? new GestureRecorder('fog', target.fogSize)
+          : new GestureRecorder(tool === 'relief' ? 'height' : 'biomeOverride', target.size);
       paintAt(event);
       return;
     }

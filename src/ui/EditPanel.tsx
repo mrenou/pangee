@@ -3,6 +3,7 @@ import { Biome } from '@/climate';
 import { useEditStore, type Tool } from '@/store/editStore';
 import { useWorldStore } from '@/store/worldStore';
 import { Field } from '@/ui/Field';
+import { FogTool } from '@/ui/FogTool';
 import { PlaceInspector } from '@/ui/PlaceInspector';
 import { RoadInspector } from '@/ui/RoadInspector';
 
@@ -20,6 +21,7 @@ const TOOLS: readonly { readonly id: Tool; readonly label: string; readonly hint
     label: 'Route',
     hint: 'Cliquer pour tracer, double-clic ou Échap pour finir, Retour arrière pour retirer un tronçon',
   },
+  { id: 'fog', label: 'Brouillard', hint: 'Révéler aux joueurs ce qu’ils ont découvert' },
 ];
 
 const RELIEF_MODES = [
@@ -186,6 +188,7 @@ export function EditPanel() {
       )}
 
       {tool === 'place' && <PlaceInspector />}
+      {tool === 'fog' && <FogTool />}
 
       {tool === 'road' && <RoadInspector />}
 

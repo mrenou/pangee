@@ -16,6 +16,7 @@ import type { Place, Road } from '@/model/world';
 import type { Point } from '@/edit/roads';
 import { TERRAIN_FRAGMENT, TERRAIN_VERTEX } from '@/render/terrainShader';
 import { biomePaletteArray } from '@/render/palette';
+import { createFogLayer, type FogMode } from '@/render/fogLayer';
 import { createLabelLayer } from '@/render/labelLayer';
 import { createRiverLayer } from '@/render/riverLayer';
 import { createRoadLayer } from '@/render/roadLayer';
@@ -65,6 +66,11 @@ export interface MapRenderer {
   refreshHeight: (region?: SubImageRegion) => void;
   /** Réuploade la couche d'override de biome. */
   refreshBiomeOverride: (data: Uint8Array) => void;
+  /** Brouillard de guerre, en référentiel local, à sa propre résolution. */
+  setFog: (size: RasterSize, fog: Uint8Array) => void;
+  /** Renvoie au GPU le brouillard modifié en place par le pinceau. */
+  refreshFog: () => void;
+  setFogMode: (mode: FogMode) => void;
   setWater: (
     size: RasterSize,
     waterLevel: Float32Array,
@@ -158,8 +164,14 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
   const labelLayer = createLabelLayer();
   app.stage.addChild(labelLayer.container);
 
+  // Le brouillard recouvre tout, libellés compris : à l'export, rien de ce qui
+  // est caché ne doit transparaître.
+  const fogLayer = createFogLayer(uniforms, geometry);
+  app.stage.addChild(fogLayer.mesh);
+
   const resizeMesh = (): void => {
     mesh.scale.set(app.screen.width, app.screen.height);
+    fogLayer.resize(app.screen.width, app.screen.height);
   };
   resizeMesh();
   app.renderer.on('resize', resizeMesh);
@@ -184,6 +196,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
   const invalidate = (): void => {
     app.renderer.render(app.stage);
     while (retired.length > 0) retired.pop()?.destroy();
+    fogLayer.releaseRetired();
   };
 
   /** Dernière configuration reçue, pour dater les couches d'eau. */
@@ -333,6 +346,18 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
       // worker au prochain calcul de climat. Voir docs/rendu.md.
       void data;
     },
+    setFog: (size, fog) => {
+      fogLayer.setFog(size, fog);
+      invalidate();
+    },
+    refreshFog: () => {
+      fogLayer.refresh();
+      invalidate();
+    },
+    setFogMode: (mode) => {
+      fogLayer.setMode(mode);
+      invalidate();
+    },
     screenSize,
     destroy: () => {
       app.renderer.off('resize', resizeMesh);
@@ -349,6 +374,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
         texture.destroy();
       }
       retired.length = 0;
+      fogLayer.destroy();
     },
   };
 }

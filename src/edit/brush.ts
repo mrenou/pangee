@@ -153,3 +153,67 @@ export function paintBiome(
     }
   }
 }
+
+export type FogMode = 'reveal' | 'hide';
+
+export interface FogBrush extends BrushShape {
+  readonly mode: FogMode;
+  /** Part du chemin vers la valeur visée, au centre et par pas : 0 à 1. */
+  readonly strength: number;
+}
+
+/**
+ * Applique le pinceau de brouillard, sur la grille du brouillard.
+ *
+ * Révéler pousse vers 255, cacher vers 0. Les valeurs intermédiaires sont
+ * voulues : elles font les bords adoucis, et un passage léger ne révèle qu'à
+ * moitié. Voir docs/partage.md.
+ */
+export function paintFog(
+  fogSize: RasterSize,
+  fog: Uint8Array,
+  centerX: number,
+  centerY: number,
+  brush: FogBrush,
+  recorder: GestureRecorder,
+): void {
+  const { width, height: rows } = fogSize;
+  const radius = Math.max(0, brush.radius);
+  const stretch = columnStretch(latOfRow(centerY, rows));
+  const spanX = Math.ceil(radius * stretch);
+  const target = brush.mode === 'reveal' ? 255 : 0;
+
+  for (let dy = -Math.ceil(radius); dy <= Math.ceil(radius); dy += 1) {
+    const y = centerY + dy;
+    if (y < 0 || y >= rows) continue;
+
+    for (let dx = -spanX; dx <= spanX; dx += 1) {
+      const w = brushWeight(Math.hypot(dx / stretch, dy), radius, brush.falloff);
+      if (w <= 0) continue;
+
+      const x = wrapX(centerX + dx, width);
+      const index = y * width + x;
+      const current = fog[index]!;
+      recorder.record(x, y, current);
+      const step = (target - current) * Math.min(1, brush.strength * w);
+      // Arrondi vers la cible : un pas, même faible, finit par l'atteindre.
+      fog[index] = current + (step > 0 ? Math.ceil(step) : Math.floor(step));
+    }
+  }
+}
+
+/** Remplit tout le brouillard d'une valeur : « tout révéler », « tout cacher ». */
+export function fillFog(
+  fogSize: RasterSize,
+  fog: Uint8Array,
+  value: number,
+  recorder: GestureRecorder,
+): void {
+  const { width, height } = fogSize;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      recorder.record(x, y, fog[y * width + x]!);
+    }
+  }
+  fog.fill(value);
+}
