@@ -274,10 +274,28 @@ Cible : 60 fps en 1080p.
 - **Mise à jour partielle des textures** pendant l'édition : le pinceau relief écrit un rectangle dans `height` et le pousse via `texSubImage2D` sur la zone touchée seulement, sans réupload complet des 2048×1024 valeurs.
 - Changement de date = mise à jour de trois flottants d'uniforme. Les textures monde ne sont réuploadées qu'à la fin du recalcul hydrologique.
 
+### Rendu à la demande
+
+Une carte immobile ne se redessine pas. Pixi démarre sans boucle (`autoStart: false`) ; chaque méthode du
+moteur qui change quelque chose de visible appelle `invalidate()`, qui programme **un** rendu à l'image
+suivante. Plusieurs demandes dans la même image n'en font qu'une : un glissé de caméra rend au rythme de
+l'écran, pas à celui des événements souris. La boucle ne tourne que pendant les animations
+(`setAnimated(true)`).
+
+| Situation             | Rendu                                    |
+| --------------------- | ---------------------------------------- |
+| carte immobile        | aucun                                    |
+| caméra, date, édition | une image par image d'écran où ça change |
+| animations activées   | chaque image, par la boucle de Pixi      |
+
+Règle pour toute nouvelle méthode du moteur : si elle change ce qui s'affiche, elle appelle `invalidate()`.
+Sans quoi le changement n'apparaît qu'au prochain mouvement de caméra.
+
 ## Animations (phase 6)
 
-Pixi rend déjà chaque image : animer revient à faire avancer une **horloge** (`uTimeS`, en secondes) dans le
-ticker avant le rendu. Rien n'est reconstruit d'une image à l'autre. Réglage « Animer l'eau, les volcans et
+Pendant une animation, la boucle de Pixi rend chaque image : animer revient à faire avancer une **horloge**
+(`uTimeS`, en secondes) dans le ticker avant le rendu. Rien n'est reconstruit d'une image à l'autre. Hors
+animation, la boucle est arrêtée (voir « Rendu à la demande » ci-dessus). Réglage « Animer l'eau, les volcans et
 les créatures », non enregistré, coupé d'office si le système demande de réduire les mouvements
 (`prefers-reduced-motion`). Coupée, l'horloge revient à zéro et la carte est exactement l'image fixe d'avant.
 Les tests de bout en bout tournent en `reducedMotion: 'reduce'`, sans quoi leurs comparaisons d'images au

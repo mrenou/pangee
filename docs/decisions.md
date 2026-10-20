@@ -243,6 +243,22 @@ dérivés, au-delà du besoin.
 
 ---
 
+## 2026-10-20 — Rendu à la demande
+
+**Décidé.** La carte n'est redessinée que lorsqu'un changement visible le demande (`invalidate()`, coalescé
+à une image d'écran), et en continu seulement pendant les animations. Voir [le rendu](rendu.md).
+
+_Pourquoi :_ Pixi redessinait la carte soixante fois par seconde même immobile. Sur un portable, c'est du
+processeur et de la batterie dépensés pour rien ; sur le runner d'intégration, qui fait tourner WebGL en
+logiciel sur deux cœurs, le shader enrichi de l'eau animée saturait la machine et treize tests de bout en
+bout dépassaient leur délai.
+
+_Écarté :_ adapter la seule intégration (fenêtre plus petite, délais allongés) — masque le coût sans le
+supprimer, et les utilisateurs le paient encore ; plafonner la cadence hors animation — saccade le
+déplacement de la carte sans éteindre le coût au repos.
+
+---
+
 ## Points à trancher plus tard
 
 Décisions volontairement repoussées, à documenter ici quand elles seront prises :

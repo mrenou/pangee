@@ -154,6 +154,10 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     antialias: false,
     preference: 'webgl',
     powerPreference: 'high-performance',
+    // Rendu à la demande : la boucle de Pixi ne tourne que pendant les
+    // animations. Une carte immobile ne coûte rien, et le rendu logiciel de
+    // WebGL — sans carte graphique — n'est pas saturé.
+    autoStart: false,
   });
   host.appendChild(app.canvas);
 
@@ -252,20 +256,6 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
   let selectedRoad: string | undefined;
   let draftRoad: readonly Point[] = [];
 
-  const resizeMesh = (): void => {
-    mesh.scale.set(app.screen.width, app.screen.height);
-    fogLayer.resize(app.screen.width, app.screen.height);
-  };
-  resizeMesh();
-  app.renderer.on('resize', resizeMesh);
-
-  /**
-   * Redessine une fois.
-   *
-   * Pixi ne re-rend que lorsque la scène a changé : remplacer une texture ou un
-   * uniforme ne l'en informe pas, et l'image restait figée jusqu'au prochain
-   * mouvement de caméra. On le lui demande donc explicitement.
-   */
   /**
    * Textures remplacées, en attente de libération.
    *
@@ -276,11 +266,33 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
    */
   const retired: HeightTexture[] = [];
 
-  const invalidate = (): void => {
+  /**
+   * Demande un rendu à l'image suivante.
+   *
+   * Rien ne redessine la carte de lui-même : tout changement visible doit
+   * passer par ici. Plusieurs demandes dans la même image n'en font qu'une —
+   * un glissé de caméra rend au rythme de l'écran, pas des événements souris.
+   */
+  let frameRequest: number | undefined;
+  let destroyed = false;
+  const renderNow = (): void => {
+    frameRequest = undefined;
+    if (destroyed) return;
     app.renderer.render(app.stage);
     while (retired.length > 0) retired.pop()?.destroy();
     fogLayer.releaseRetired();
   };
+  const invalidate = (): void => {
+    frameRequest ??= requestAnimationFrame(renderNow);
+  };
+
+  const resizeMesh = (): void => {
+    mesh.scale.set(app.screen.width, app.screen.height);
+    fogLayer.resize(app.screen.width, app.screen.height);
+    invalidate();
+  };
+  resizeMesh();
+  app.renderer.on('resize', resizeMesh);
 
   /** Dernière configuration reçue, pour dater les couches d'eau. */
   let lastRingConfig: RingConfig | undefined;
@@ -292,8 +304,9 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
 
   let screenViewport: Viewport | undefined;
 
-  // Horloge d'animation. Pixi rend déjà chaque image : animer revient à faire
-  // avancer quelques uniformes avant le rendu, rien n'est reconstruit.
+  // Horloge d'animation. Pendant une animation, la boucle de Pixi rend chaque
+  // image : animer revient à faire avancer quelques uniformes avant le rendu,
+  // rien n'est reconstruit.
   let animationTimeS = 0;
   const tick = (): void => {
     animationTimeS += app.ticker.deltaMS / 1000;
@@ -309,8 +322,10 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     animated = next;
     if (next) {
       app.ticker.add(tick);
+      app.start();
       return;
     }
+    app.stop();
     app.ticker.remove(tick);
     animationTimeS = 0;
     uniforms.uniforms.uTimeS = 0;
@@ -480,6 +495,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     symbolLayer.setTime(view.ringConfig, view.tDays);
     riverLayer.setTime(view.ringConfig, view.tDays);
     uniforms.update();
+    invalidate();
   };
 
   const setHeight = (size: RasterSize, height: Float32Array): void => {
@@ -563,29 +579,41 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     setPlaces: (next) => {
       labelLayer.setPlaces(next);
       volcanoLayer.setPlaces(next);
+      invalidate();
     },
     setSelectedPlace: (id) => {
       selectedPlace = id;
       labelLayer.setSelected(id);
+      invalidate();
     },
-    setRoads: (next) => roadLayer.setRoads(next),
+    setRoads: (next) => {
+      roadLayer.setRoads(next);
+      invalidate();
+    },
     setDraftRoad: (next) => {
       draftRoad = next;
       roadLayer.setDraft(next);
+      invalidate();
     },
-    setCreatures: (next) => creatureLayer.setCreatures(next),
+    setCreatures: (next) => {
+      creatureLayer.setCreatures(next);
+      invalidate();
+    },
     setCreatureEditing: (editing, selectedId) => {
       creatureEditing = editing;
       creatureLayer.setEditing(editing);
       creatureLayer.setSelected(selectedId);
+      invalidate();
     },
     setDraftCreature: (points, ringId) => {
       creatureDraft = { points, ringId };
       creatureLayer.setDraft(points, ringId);
+      invalidate();
     },
     setSelectedRoad: (id) => {
       selectedRoad = id;
       roadLayer.setSelected(id);
+      invalidate();
     },
 
     refreshHeight: (region) => {
@@ -625,6 +653,8 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     setAnimated,
     screenSize,
     destroy: () => {
+      destroyed = true;
+      if (frameRequest !== undefined) cancelAnimationFrame(frameRequest);
       app.ticker.remove(tick);
       app.renderer.off('resize', resizeMesh);
       riverLayer.destroy();
