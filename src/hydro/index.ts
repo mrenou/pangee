@@ -79,5 +79,5 @@ export function riverThreshold(size: RasterSize, rainPerCell: number): number {
   return size.width * size.height * RIVER_THRESHOLD_FRACTION * rainPerCell;
 }
 
-export { assembleHeightWorld, rowShiftCells } from '@/hydro/assemble';
+export { assembleHeightWorld, assembleLayerWorld, rowShiftCells } from '@/hydro/assemble';
 export * from '@/hydro/types';

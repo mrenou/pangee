@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { RiverNetwork } from '@/hydro/rivers';
 import type { RasterSize } from '@/model/world';
 import type { HydroRequest } from '@/workers/hydro.worker';
-import { requestHydro, sendHeightToHydro } from '@/workers/hydroClient';
+import { requestHydro, sendLayersToHydro } from '@/workers/hydroClient';
 
 /**
  * Délai avant de relancer l'hydrologie. Le terrain, lui, se décale sans
@@ -34,7 +34,8 @@ interface HydroState {
   lastElapsedMs: number;
   error: string | undefined;
 
-  setHeight: (size: RasterSize, height: Float32Array) => Promise<void>;
+  /** Renvoie au worker le relief et l'override, après un nouveau monde ou une édition. */
+  setLayers: (size: RasterSize, height: Float32Array, biomeOverride: Uint8Array) => Promise<void>;
   schedule: (request: HydroRequest) => void;
 }
 
@@ -48,8 +49,8 @@ export const useHydroStore = create<HydroState>((set) => ({
   lastElapsedMs: 0,
   error: undefined,
 
-  setHeight: async (size, height) => {
-    await sendHeightToHydro(size, height);
+  setLayers: async (size, height, biomeOverride) => {
+    await sendLayersToHydro(size, height, biomeOverride);
   },
 
   schedule: (request) => {

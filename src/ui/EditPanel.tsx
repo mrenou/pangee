@@ -61,7 +61,6 @@ export function EditPanel() {
   const undoLabel = useEditStore((s) => s.undoLabel);
   const undo = useEditStore((s) => s.undo);
   const redo = useEditStore((s) => s.redo);
-  const bump = useWorldStore((s) => s.bumpHeightVersion);
 
   const hint = TOOLS.find((t) => t.id === tool)?.hint ?? '';
 
@@ -203,10 +202,7 @@ export function EditPanel() {
       <div className="mt-3 flex gap-1">
         <button
           type="button"
-          onClick={() => {
-            undo();
-            bump();
-          }}
+          onClick={undo}
           disabled={!canUndo}
           className="flex-1 rounded border border-ink-soft/40 px-2 py-1 text-xs hover:bg-parchment-dark disabled:opacity-40"
         >
@@ -214,10 +210,7 @@ export function EditPanel() {
         </button>
         <button
           type="button"
-          onClick={() => {
-            redo();
-            bump();
-          }}
+          onClick={redo}
           disabled={!canRedo}
           className="rounded border border-ink-soft/40 px-2 py-1 text-xs hover:bg-parchment-dark disabled:opacity-40"
         >

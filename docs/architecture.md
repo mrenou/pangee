@@ -91,6 +91,11 @@ résultats volumineux (`Float32Array`, `Uint8Array`) sont renvoyés en **Transfe
 la copie ; conséquence à connaître : le tampon transféré devient inutilisable côté worker, donc
 le worker travaille sur ses propres tampons réutilisés et ne transfère que le résultat.
 
+Le worker `hydro` garde sa propre copie des couches locales `height` et `biomeOverride`. Elle lui est
+renvoyée (copie transférée) à chaque nouveau monde et **à la fin de chaque commande raster** — fin de geste,
+annulation, rétablissement —, jamais au fil du pinceau ; changer la date ne lui envoie que quelques nombres.
+Les commandes vectorielles (lieux, routes) ne déclenchent ni réupload du relief ni recalcul de l'eau.
+
 Aucune exception ne doit mourir silencieusement dans un worker : toute erreur est remontée à
 l'interface, voir [les conventions](conventions.md).
 

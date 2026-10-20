@@ -118,7 +118,9 @@ export function MapCanvas() {
         },
         onCommand: (command) => {
           useEditStore.getState().record(command);
-          useWorldStore.getState().bumpHeightVersion();
+          // Un lieu ou une route ne justifie ni un réupload du relief ni un
+          // recalcul de l'eau.
+          if (command.kind === 'raster') useWorldStore.getState().bumpHeightVersion();
           useWorldStore.getState().scheduleAutosave();
         },
         onDraftRoad: (points) => created.setDraftRoad(points),
@@ -198,6 +200,18 @@ export function MapCanvas() {
     const renderer = rendererRef.current;
     if (renderer) pushView(renderer);
   }, [ringConfig, tDays, seaLevelM, showFaults, bookStyle]);
+
+  // Le worker garde sa propre copie des couches locales : elle lui est renvoyée
+  // à chaque nouveau monde et à la fin de chaque édition raster, jamais au
+  // fil du pinceau. Cet effet doit précéder celui qui programme le calcul :
+  // les messages au worker sont traités dans l'ordre d'envoi.
+  useEffect(() => {
+    if (heightVersion === 0) return;
+    const { rasterSize, height, biomeOverride } = useWorldStore.getState();
+    if (height && biomeOverride) {
+      void useHydroStore.getState().setLayers(rasterSize, height, biomeOverride);
+    }
+  }, [heightVersion]);
 
   // L'eau est recalculée après coup : le terrain a déjà glissé, seul un
   // uniforme ayant changé. Voir docs/temps.md.
