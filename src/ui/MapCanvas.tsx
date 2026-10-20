@@ -42,6 +42,7 @@ function pushAll(renderer: MapRenderer): void {
   renderer.setSelectedPlace(tool === 'place' ? selectedPlaceId : undefined);
   renderer.setSelectedRoad(tool === 'road' ? selectedRoadId : undefined);
   renderer.setRoads(world.roads);
+  renderer.setCreatures(world.creatures);
 
   if (world.height) renderer.setHeight(world.rasterSize, world.height);
   if (world.fog) renderer.setFog(world.fogSize, world.fog);
@@ -153,6 +154,9 @@ export function MapCanvas() {
         getFogBrush: () => useEditStore.getState().fogBrush,
         getRoadFollowsTerrain: () => useEditStore.getState().roadFollowsTerrain,
         getNewRoadKind: () => useEditStore.getState().newRoadKind,
+        getNewCreatureKind: () => useEditStore.getState().newCreatureKind,
+        onDraftCreature: (points, ringId) => created.setDraftCreature(points, ringId),
+        onSelectCreature: (id) => useEditStore.getState().selectCreature(id),
         getSeaLevelM: () => useWorldStore.getState().seaLevelM,
         getRadiusKm: () => useWorldStore.getState().radiusKm,
         onRasterTouched: (layer) => {
@@ -264,6 +268,16 @@ export function MapCanvas() {
   useEffect(() => {
     rendererRef.current?.setSelectedRoad(tool === 'road' ? selectedRoadId : undefined);
   }, [tool, selectedRoadId]);
+
+  const creatures = useWorldStore((s) => s.creatures);
+  useEffect(() => {
+    rendererRef.current?.setCreatures(creatures);
+  }, [creatures]);
+
+  const selectedCreatureId = useEditStore((s) => s.selectedCreatureId);
+  useEffect(() => {
+    rendererRef.current?.setCreatureEditing(tool === 'creature', selectedCreatureId);
+  }, [tool, selectedCreatureId]);
 
   const roads = useWorldStore((s) => s.roads);
   useEffect(() => {

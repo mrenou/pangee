@@ -7,7 +7,14 @@ import {
   type TerrainParams,
 } from '@/gen';
 import { DEFAULT_RING_CONFIG, type RingConfig, type RingId } from '@/model/ring';
-import { DEFAULT_SETTINGS, RASTER_2K, type Place, type RasterSize, type Road } from '@/model/world';
+import {
+  DEFAULT_SETTINGS,
+  RASTER_2K,
+  type Creature,
+  type Place,
+  type RasterSize,
+  type Road,
+} from '@/model/world';
 import { generateWorldInWorker } from '@/workers/genClient';
 import { createAutosave, downloadWorld, loadLastWorld, readWorldFile } from '@/store/persistence';
 import type { WorldDocument } from '@/model/file';
@@ -39,6 +46,7 @@ interface WorldState {
   placeDensity: number;
   places: readonly Place[];
   roads: readonly Road[];
+  creatures: readonly Creature[];
   rasterSize: RasterSize;
   height: Float32Array | undefined;
   biomeOverride: Uint8Array | undefined;
@@ -64,6 +72,7 @@ interface WorldState {
   setPlaceDensity: (placeDensity: number) => void;
   setPlaces: (places: readonly Place[]) => void;
   setRoads: (roads: readonly Road[]) => void;
+  setCreatures: (creatures: readonly Creature[]) => void;
   /** Force le rendu à relire le relief après une édition. */
   bumpHeightVersion: () => void;
   bumpFogVersion: () => void;
@@ -157,6 +166,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   placeDensity: DEFAULT_PLACE_DENSITY,
   places: [],
   roads: [],
+  creatures: [],
   rasterSize: RASTER_2K,
   height: undefined,
   biomeOverride: undefined,
@@ -217,6 +227,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   setPlaceDensity: (placeDensity) => set({ placeDensity }),
   setPlaces: (places) => set({ places }),
   setRoads: (roads) => set({ roads }),
+  setCreatures: (creatures) => set({ creatures }),
   bumpHeightVersion: () => set((s) => ({ heightVersion: s.heightVersion + 1 })),
   bumpFogVersion: () => set((s) => ({ fogVersion: s.fogVersion + 1 })),
 
@@ -239,6 +250,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
       fog: s.fog ?? new Uint8Array(fogSize.width * fogSize.height),
       places: s.places,
       roads: s.roads,
+      creatures: s.creatures,
     };
   },
 
@@ -290,6 +302,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
       fogVersion: s.fogVersion + 1,
       places: doc.places,
       roads: doc.roads,
+      creatures: doc.creatures,
       terrain: { ...s.terrain, seed: doc.seed },
       heightVersion: s.heightVersion + 1,
       status: 'idle',

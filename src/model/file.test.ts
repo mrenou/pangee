@@ -11,7 +11,7 @@ import {
   type WorldDocument,
 } from '@/model/file';
 import { DEFAULT_RING_CONFIG } from '@/model/ring';
-import type { Place, RasterSize, Road } from '@/model/world';
+import type { Creature, Place, RasterSize, Road } from '@/model/world';
 
 const size: RasterSize = { width: 32, height: 16 };
 const fogSize: RasterSize = { width: 8, height: 4 };
@@ -53,6 +53,22 @@ function document(): WorldDocument {
     },
   ];
 
+  const creatures: readonly Creature[] = [
+    {
+      id: 'c1',
+      name: 'Vermithrax',
+      kind: 'dragon',
+      ringId: 'north',
+      points: [
+        [10, 50],
+        [30, 60],
+        [20, 45],
+      ],
+      speedDegPerS: 2,
+      loop: true,
+    },
+  ];
+
   return {
     id: 'w1',
     name: 'Pangée',
@@ -68,6 +84,7 @@ function document(): WorldDocument {
     fog,
     places,
     roads,
+    creatures,
   };
 }
 
@@ -108,6 +125,7 @@ describe('aller-retour complet', () => {
     expect(back.ringConfig).toEqual(original.ringConfig);
     expect(back.places).toEqual(original.places);
     expect(back.roads).toEqual(original.roads);
+    expect(back.creatures).toEqual(original.creatures);
     expect(Array.from(back.biomeOverride)).toEqual(Array.from(original.biomeOverride));
     expect(Array.from(back.fog)).toEqual(Array.from(original.fog));
   });
@@ -158,6 +176,25 @@ describe('robustesse à l import', () => {
     if (!future.ok) expect(future.error).toContain('plus récente');
   });
 
+  it('migre un monde de la version 1, qui ne connaissait pas les créatures', () => {
+    const v1 = rewriteManifest(serializeWorld(document()), (manifest) => {
+      delete manifest.creatures;
+      manifest.formatVersion = 1;
+    });
+    const parsed = parseWorld(v1);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.value.creatures).toEqual([]);
+  });
+
+  it('refuse une créature mal formée', () => {
+    const broken = rewriteManifest(serializeWorld(document()), (manifest) => {
+      manifest.creatures = [{ id: 'c', name: 'x', kind: 'licorne', ringId: 'north', points: [] }];
+    });
+    const parsed = parseWorld(broken);
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) expect(parsed.error).toContain('créature');
+  });
+
   it('refuse une archive dont une couche ne fait pas la taille annoncée', () => {
     const original = document();
     const parsed = parseWorld(truncateEntry(serializeWorld(original)));
@@ -172,6 +209,21 @@ function serializeWorldWithVersion(doc: WorldDocument, version: number): Uint8Ar
     formatVersion: number;
   };
   manifest.formatVersion = version;
+  entries['world.json'] = new TextEncoder().encode(JSON.stringify(manifest));
+  return zipSync(entries);
+}
+
+/** Réécrit world.json par une fonction, pour fabriquer des fichiers d'autres versions. */
+function rewriteManifest(
+  bytes: Uint8Array,
+  change: (manifest: Record<string, unknown>) => void,
+): Uint8Array {
+  const entries = unzipSync(bytes);
+  const manifest = JSON.parse(new TextDecoder().decode(entries['world.json'])) as Record<
+    string,
+    unknown
+  >;
+  change(manifest);
   entries['world.json'] = new TextEncoder().encode(JSON.stringify(manifest));
   return zipSync(entries);
 }

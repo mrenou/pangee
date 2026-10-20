@@ -18,6 +18,7 @@ import {
 import { GestureRecorder } from '@/edit/patch';
 import {
   History,
+  creaturesCommand,
   placesCommand,
   rasterCommand,
   roadsCommand,
@@ -26,10 +27,11 @@ import {
 } from '@/edit/history';
 import { removePlace, updatePlace, type PlaceEdit } from '@/edit/places';
 import { removeRoad, setRoadKind } from '@/edit/roads';
-import type { RoadKind } from '@/model/world';
+import { removeCreature, updateCreature, type CreatureEdit } from '@/edit/creatures';
+import type { CreatureKind, RoadKind } from '@/model/world';
 import { useWorldStore } from '@/store/worldStore';
 
-export type Tool = 'pan' | 'relief' | 'biome' | 'place' | 'road' | 'fog' | 'export';
+export type Tool = 'pan' | 'relief' | 'biome' | 'place' | 'road' | 'creature' | 'fog' | 'export';
 
 export const history = new History();
 
@@ -56,6 +58,12 @@ export function editTarget(): EditTarget | undefined {
     set roads(next) {
       useWorldStore.getState().setRoads(next);
     },
+    get creatures() {
+      return useWorldStore.getState().creatures;
+    },
+    set creatures(next) {
+      useWorldStore.getState().setCreatures(next);
+    },
   };
 }
 
@@ -73,6 +81,8 @@ interface EditState {
   newRoadKind: RoadKind;
   /** Route ouverte dans l'inspecteur ; même règle que pour les lieux. */
   selectedRoadId: string | undefined;
+  newCreatureKind: CreatureKind;
+  selectedCreatureId: string | undefined;
   /** Lieu ouvert dans l'inspecteur. Un identifiant qui ne correspond plus à
    * aucun lieu (après une annulation, par exemple) vaut absence de sélection. */
   selectedPlaceId: string | undefined;
@@ -96,7 +106,10 @@ interface EditState {
   setNewRoadKind: (kind: RoadKind) => void;
   selectRoad: (id: string | undefined) => void;
   setSelectedRoadKind: (kind: RoadKind) => void;
-  /** Supprime le lieu ou la route sélectionné, selon l'outil actif. */
+  setNewCreatureKind: (kind: CreatureKind) => void;
+  selectCreature: (id: string | undefined) => void;
+  editCreature: (edit: CreatureEdit, label: string) => void;
+  /** Supprime le lieu, la route ou la créature sélectionné, selon l'outil actif. */
   deleteSelection: () => void;
   selectPlace: (id: string | undefined) => void;
   /** Retouche le lieu sélectionné, en une commande annulable. */
@@ -135,6 +148,8 @@ export const useEditStore = create<EditState>((set, get) => ({
   roadFollowsTerrain: false,
   newRoadKind: 'road',
   selectedRoadId: undefined,
+  newCreatureKind: 'dragon',
+  selectedCreatureId: undefined,
   selectedPlaceId: undefined,
   edited: false,
   canUndo: false,
@@ -163,6 +178,19 @@ export const useEditStore = create<EditState>((set, get) => ({
   setRoadFollowsTerrain: (roadFollowsTerrain) => set({ roadFollowsTerrain }),
   setNewRoadKind: (newRoadKind) => set({ newRoadKind }),
   selectRoad: (selectedRoadId) => set({ selectedRoadId }),
+  setNewCreatureKind: (newCreatureKind) => set({ newCreatureKind }),
+  selectCreature: (selectedCreatureId) => set({ selectedCreatureId }),
+
+  editCreature: (edit, label) => {
+    const target = editTarget();
+    const id = get().selectedCreatureId;
+    if (!target || id === undefined) return;
+    const before = target.creatures;
+    const command = creaturesCommand(label, before, updateCreature(before, id, edit));
+    command.apply(target);
+    get().record(command);
+    useWorldStore.getState().scheduleAutosave();
+  },
 
   setSelectedRoadKind: (kind) => {
     const target = editTarget();
@@ -176,9 +204,24 @@ export const useEditStore = create<EditState>((set, get) => ({
   },
 
   deleteSelection: () => {
-    const { tool, selectedRoadId } = get();
+    const { tool, selectedRoadId, selectedCreatureId } = get();
     if (tool === 'place') {
       get().deleteSelectedPlace();
+      return;
+    }
+    if (tool === 'creature') {
+      const target = editTarget();
+      if (!target || selectedCreatureId === undefined) return;
+      const before = target.creatures;
+      const command = creaturesCommand(
+        'créature retirée',
+        before,
+        removeCreature(before, selectedCreatureId),
+      );
+      command.apply(target);
+      get().record(command);
+      set({ selectedCreatureId: undefined });
+      useWorldStore.getState().scheduleAutosave();
       return;
     }
     const target = editTarget();

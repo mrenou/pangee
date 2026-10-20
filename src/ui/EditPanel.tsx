@@ -3,6 +3,7 @@ import { Biome } from '@/climate';
 import { useEditStore, type Tool } from '@/store/editStore';
 import { useWorldStore } from '@/store/worldStore';
 import { Field } from '@/ui/Field';
+import { CreatureInspector } from '@/ui/CreatureInspector';
 import { ExportPanel } from '@/ui/ExportPanel';
 import { FogTool } from '@/ui/FogTool';
 import { PlaceInspector } from '@/ui/PlaceInspector';
@@ -21,6 +22,11 @@ const TOOLS: readonly { readonly id: Tool; readonly label: string; readonly hint
     id: 'road',
     label: 'Route',
     hint: 'Cliquer pour tracer, double-clic ou Échap pour finir, Retour arrière pour retirer un tronçon',
+  },
+  {
+    id: 'creature',
+    label: 'Créature',
+    hint: 'Tracer la trajectoire d’un dragon, d’un navire, d’oiseaux ou d’un serpent de mer',
   },
   { id: 'fog', label: 'Brouillard', hint: 'Révéler aux joueurs ce qu’ils ont découvert' },
   { id: 'export', label: 'Image', hint: 'Cadrer à la souris la zone à exporter en PNG' },
@@ -190,6 +196,7 @@ export function EditPanel() {
       )}
 
       {tool === 'place' && <PlaceInspector />}
+      {tool === 'creature' && <CreatureInspector />}
       {tool === 'fog' && <FogTool />}
       {tool === 'export' && <ExportPanel />}
 

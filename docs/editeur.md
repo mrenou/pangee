@@ -135,6 +135,21 @@ chaque chargement, et des identifiants réutilisés rendraient la sélection amb
 | Type de la route sélectionnée  | `type de route`                                 |
 | `Suppr` ou bouton Supprimer    | `route supprimée`                               |
 
+## Créatures
+
+Outil **Créature** : un clic par point de passage, double-clic ou `Échap` pour finir, `Retour arrière` pour
+retirer le dernier point. Le type (dragon, navire, oiseaux, serpent de mer) se choisit avant de tracer. Tous
+les points sont exprimés dans le référentiel local de l'anneau du premier : la trajectoire tourne d'un bloc
+avec lui. Hors tracé, un clic sur une trajectoire l'ouvre dans l'inspecteur — nom, type, vitesse en degrés par
+seconde, boucle ou aller-retour — et `Suppr` la retire ; `Maj` + clic commence un tracé par-dessus. Les
+trajectoires ne se montrent que sous cet outil, jamais à l'export.
+
+| Geste                      | Commande empilée          |
+| -------------------------- | ------------------------- |
+| Double-clic ou `Échap`     | `créature ajoutée`        |
+| Nom, type, vitesse, boucle | une commande par retouche |
+| `Suppr` ou bouton Retirer  | `créature retirée`        |
+
 ## Réglages
 
 Panneau monde : vitesse signée et sens par anneau (`omegaDegPerDay`, préréglage « immobile »), `cutNorthLat`
