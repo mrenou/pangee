@@ -8,6 +8,10 @@ export default defineConfig({
     // Le rendu logiciel suffit : on vérifie que le shader compile et que la
     // carte se dessine, pas les performances.
     launchOptions: { args: ['--use-gl=angle', '--use-angle=swiftshader'] },
+    // Les captures comparées au pixel près supposent une carte immobile : les
+    // animations se coupent d'elles-mêmes pour qui réduit les mouvements. Les
+    // tests d'animation le rétablissent explicitement.
+    reducedMotion: 'reduce',
   },
   // Les tests visent le serveur de développement, et non un build servi en
   // statique : c'est là que React monte chaque composant deux fois, ce qui

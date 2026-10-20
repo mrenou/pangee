@@ -109,6 +109,11 @@ export interface MapRenderer {
   /** Renvoie au GPU le brouillard modifié en place par le pinceau. */
   refreshFog: () => void;
   setFogMode: (mode: FogMode) => void;
+  /**
+   * Lance ou arrête l'horloge des animations : eau, volcans, créatures. Coupée,
+   * la carte est exactement celle d'une image fixe.
+   */
+  setAnimated: (animated: boolean) => void;
   /** Cadre d'export en cours, tracé en pointillés sur la carte. */
   setExportRect: (rect: WorldRect | undefined) => void;
   /** Taille de texture maximale du GPU, pour planifier un export. */
@@ -160,6 +165,7 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     uHasWater: { value: 0, type: 'f32' },
     uRiverThreshold: { value: 1e9, type: 'f32' },
     uStyle: { value: 1, type: 'f32' },
+    uTimeS: { value: 0, type: 'f32' },
     uBiomeColor: { value: biomePaletteArray(), type: 'vec3<f32>', size: 14 },
   });
 
@@ -264,6 +270,31 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
   });
 
   let screenViewport: Viewport | undefined;
+
+  // Horloge d'animation. Pixi rend déjà chaque image : animer revient à faire
+  // avancer quelques uniformes avant le rendu, rien n'est reconstruit.
+  let animationTimeS = 0;
+  const tick = (): void => {
+    animationTimeS += app.ticker.deltaMS / 1000;
+    uniforms.uniforms.uTimeS = animationTimeS;
+    uniforms.update();
+    riverLayer.setAnimationTime(animationTimeS);
+  };
+  let animated = false;
+  const setAnimated = (next: boolean): void => {
+    if (next === animated) return;
+    animated = next;
+    if (next) {
+      app.ticker.add(tick);
+      return;
+    }
+    app.ticker.remove(tick);
+    animationTimeS = 0;
+    uniforms.uniforms.uTimeS = 0;
+    uniforms.update();
+    riverLayer.setAnimationTime(undefined);
+    invalidate();
+  };
 
   const drawExportFrame = (): void => {
     exportFrame.clear();
@@ -546,8 +577,10 @@ export async function createMapRenderer(host: HTMLElement): Promise<MapRenderer>
     },
     maxTextureSize,
     exportPng,
+    setAnimated,
     screenSize,
     destroy: () => {
+      app.ticker.remove(tick);
       app.renderer.off('resize', resizeMesh);
       riverLayer.destroy();
       roadLayer.destroy();

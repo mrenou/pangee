@@ -55,6 +55,7 @@ uniform float uHasWater;        // 0 tant que l'hydrologie n'a pas répondu
 uniform float uRiverThreshold;
 uniform vec3 uBiomeColor[14];
 uniform float uStyle;           // 0 = relief nu, 1 = carte de livre
+uniform float uTimeS;           // horloge d'animation, figée quand l'animation est coupée
 
 const float PI = 3.14159265359;
 
@@ -270,6 +271,9 @@ void main() {
       // Un lac est peu profond : on étale sa palette sur quelques centaines de
       // mètres, et non sur celle des grands fonds, sinon il ressort uniforme.
       color = lakeColor(clamp(depth / 400.0, 0.0, 1.0));
+      // Reflets qui dérivent lentement à la surface.
+      float glint = valueNoise(lonLat * 40.0 + vec2(uTimeS * 0.35, uTimeS * 0.2));
+      color += vec3(0.05, 0.06, 0.06) * smoothstep(0.72, 0.95, glint);
     } else {
       color = seaColor(clamp(depth / uMaxDepthM, 0.0, 1.0));
     }
@@ -297,7 +301,9 @@ void main() {
     // dépend d'aucune estimation de distance, qui devient instable dès que le
     // fond s'aplatit.
     float depth = surfaceM - h;
-    float band = depth / 180.0;
+    // Les isolignes ondulent doucement, chacune à son rythme : la houle.
+    float swell = sin(uTimeS * 0.7 + valueNoise(lonLat * 3.0) * 6.2832) * 0.06;
+    float band = depth / 180.0 + swell;
     float jitter = valueNoise(lonLat * 24.0) * 0.25;
     float line = abs(fract(band + jitter) - 0.5);
 
@@ -308,6 +314,14 @@ void main() {
     // Les hachures n'accompagnent que les abords : au large, le fond est nu.
     float fade = 1.0 - smoothstep(200.0, 900.0, depth);
     color = mix(color, vec3(0.325, 0.404, 0.443), stripe * fade * 0.4);
+
+    // Vagues qui montent vers le rivage : des traits clairs, à pas de
+    // profondeur constant, qui glissent vers la côte. Seulement en eau basse.
+    float wave = fract(depth / 45.0 + uTimeS * 0.22 + jitter);
+    float waveWidth = fwidth(depth / 45.0) * 0.9;
+    float crest = 1.0 - smoothstep(waveWidth * 0.5, waveWidth * 1.5, abs(wave - 0.5));
+    float shallow = 1.0 - smoothstep(20.0, 140.0, depth);
+    color = mix(color, vec3(0.86, 0.9, 0.88), crest * shallow * 0.35);
   }
 
   // Le trait de côte passe par-dessus les hachures : c'est lui qui porte la

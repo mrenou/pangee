@@ -11,6 +11,7 @@ import { Container, Graphics } from 'pixi.js';
 import type { RiverNetwork } from '@/hydro/rivers';
 import type { RingConfig } from '@/model/ring';
 import type { Viewport } from '@/model/viewport';
+import { createRiverFlow } from '@/render/riverFlow';
 import { worldLagDeg } from '@/render/worldLag';
 
 /** Épaisseur à l'écran d'un ruisseau au seuil, en pixels. */
@@ -32,6 +33,8 @@ export interface RiverLayer {
   /** Date et anneaux courants, pour rattraper le retard du réseau. */
   setTime: (ringConfig: RingConfig, tDays: number) => void;
   setViewport: (viewport: Viewport) => void;
+  /** Horloge d'animation, en secondes ; `undefined` coupe le courant. */
+  setAnimationTime: (timeS: number | undefined) => void;
   destroy: () => void;
 }
 
@@ -41,6 +44,12 @@ export function createRiverLayer(): RiverLayer {
     const graphics = new Graphics();
     container.addChild(graphics);
     return graphics;
+  });
+  // Le courant passe sur l'encre, avec les mêmes copies pour le wrap.
+  const flow = createRiverFlow(REPEATS.length);
+  flow.meshes.forEach((mesh, i) => {
+    mesh.position.x = REPEATS[i]!;
+    container.addChild(mesh);
   });
 
   let network: RiverNetwork | undefined;
@@ -99,8 +108,12 @@ export function createRiverLayer(): RiverLayer {
     }
   };
 
+  /** Le courant suit le même réseau, décalé du même retard. */
+  const rebuildFlow = (): void => flow.rebuild(network, lagAt, BASE_WIDTH_PX);
+
   const setViewport = (viewport: Viewport): void => {
     const { pixelsPerDegree, centerLonWorld, centerLat, widthPx, heightPx } = viewport;
+    flow.setZoom(pixelsPerDegree);
 
     if (pixelsPerDegree !== drawnAtPixelsPerDegree || drawnLag !== `${tDays}:${networkTDays}`) {
       draw(pixelsPerDegree);
@@ -125,13 +138,22 @@ export function createRiverLayer(): RiverLayer {
       network = next;
       networkTDays = at;
       draw(drawnAtPixelsPerDegree);
+      rebuildFlow();
     },
     setTime: (config, days) => {
       ringConfig = config;
       tDays = days;
       draw(drawnAtPixelsPerDegree);
+      rebuildFlow();
     },
     setViewport,
-    destroy: () => container.destroy({ children: true }),
+    setAnimationTime: (timeS) => {
+      flow.setVisible(timeS !== undefined);
+      if (timeS !== undefined) flow.setTime(timeS);
+    },
+    destroy: () => {
+      flow.destroy();
+      container.destroy({ children: true });
+    },
   };
 }

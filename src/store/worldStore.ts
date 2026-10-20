@@ -22,6 +22,8 @@ interface WorldState {
   seaLevelM: number;
   showFaults: boolean;
   bookStyle: boolean;
+  /** Eau, volcans et créatures animés. Réglage d'affichage, non enregistré. */
+  animate: boolean;
 
   worldId: string;
   worldName: string;
@@ -52,6 +54,7 @@ interface WorldState {
   setSeaLevel: (seaLevelM: number) => void;
   setShowFaults: (showFaults: boolean) => void;
   setBookStyle: (bookStyle: boolean) => void;
+  setAnimate: (animate: boolean) => void;
   setTerrain: (patch: Partial<TerrainParams>) => void;
   setPlaceDensity: (placeDensity: number) => void;
   setPlaces: (places: readonly Place[]) => void;
@@ -72,6 +75,16 @@ interface WorldState {
   regenerate: () => Promise<boolean>;
 }
 
+/**
+ * Les animations sont décoratives : on les coupe d'office pour qui a demandé
+ * à son système de réduire les mouvements.
+ */
+function prefersMotion(): boolean {
+  return (
+    typeof window === 'undefined' || !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
 export const MAX_ALTITUDE = MAX_ALTITUDE_M;
 export const MAX_DEPTH = MAX_DEPTH_M;
 
@@ -89,6 +102,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   seaLevelM: DEFAULT_SETTINGS.seaLevelM,
   showFaults: true,
   bookStyle: true,
+  animate: prefersMotion(),
 
   worldId: 'monde-1',
   worldName: 'Pangée',
@@ -148,6 +162,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   },
   setShowFaults: (showFaults) => set({ showFaults }),
   setBookStyle: (bookStyle) => set({ bookStyle }),
+  setAnimate: (animate) => set({ animate }),
   setTerrain: (patch) => set((s) => ({ terrain: { ...s.terrain, ...patch } })),
   setPlaceDensity: (placeDensity) => set({ placeDensity }),
   setPlaces: (places) => set({ places }),

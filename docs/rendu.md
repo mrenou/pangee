@@ -275,9 +275,27 @@ Cible : 60 fps en 1080p.
 
 ## Animations (phase 6)
 
-Décrites ici pour mémoire, implémentées après le cœur fonctionnel :
+Pixi rend déjà chaque image : animer revient à faire avancer une **horloge** (`uTimeS`, en secondes) dans le
+ticker avant le rendu. Rien n'est reconstruit d'une image à l'autre. Réglage « Animer l'eau, les volcans et
+les créatures », non enregistré, coupé d'office si le système demande de réduire les mouvements
+(`prefers-reduced-motion`). Coupée, l'horloge revient à zéro et la carte est exactement l'image fixe d'avant.
+Les tests de bout en bout tournent en `reducedMotion: 'reduce'`, sans quoi leurs comparaisons d'images au
+pixel près n'auraient pas de sens ; ceux qui vérifient l'animation le rétablissent.
 
-- **Eau** : défilement d'un bruit le long de `flowDir` pour les rivières, ondulation aux côtes, voile blanc aux cascades — entièrement dans le shader, coût quasi nul (un uniforme de temps).
+| Effet                | Où                        | Principe                                                                                    |
+| -------------------- | ------------------------- | ------------------------------------------------------------------------------------------- |
+| Houle                | shader terrain            | les isolignes des hachures ondulent, chacune à sa phase tirée d'un bruit                    |
+| Vagues               | shader terrain            | traits clairs tous les 45 m de profondeur, qui glissent vers le rivage, sous 140 m d'eau    |
+| Reflets des lacs     | shader terrain            | bruit qui dérive lentement à la surface                                                     |
+| Courant des rivières | `src/render/riverFlow.ts` | un quad par segment, portant sa distance à la source ; tirets clairs qui filent vers l'aval |
+
+Le courant est un mesh à shader propre plutôt qu'un tracé redessiné : la géométrie n'est reconstruite qu'avec
+le réseau ou la date, la largeur est tenue en pixels par un uniforme de zoom, et défiler ne coûte qu'un
+uniforme. Les rivières de moins d'un pixel de reflet n'en portent pas.
+
+Restent à faire, décrits ici pour mémoire :
+
+- **Cascades** : voile blanc au franchissement d'une coupure, dès que l'hydrologie les détectera.
 - **Volcans** : `Place.kind === 'volcano'` alimente un émetteur de particules (fumée, lueur).
 - **Créatures** : sprites suivant des trajectoires à points de passage, vitesse réglable ; purement décoratif.
 - **Time-lapse** : lecture de la date à vitesse réglable, avec l'**hydrologie précalculée par images-clés** et interpolée entre deux clés ; le terrain, lui, suit la date en continu.

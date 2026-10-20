@@ -32,6 +32,8 @@ export function RingPanel() {
   const setCut = useWorldStore((s) => s.setCut);
   const setSeaLevel = useWorldStore((s) => s.setSeaLevel);
   const setShowFaults = useWorldStore((s) => s.setShowFaults);
+  const animate = useWorldStore((s) => s.animate);
+  const setAnimate = useWorldStore((s) => s.setAnimate);
   const bookStyle = useWorldStore((s) => s.bookStyle);
   const setBookStyle = useWorldStore((s) => s.setBookStyle);
 
@@ -140,6 +142,16 @@ export function RingPanel() {
           className="accent-ink-soft"
         />
         Habillage carte de livre
+      </label>
+
+      <label className="mt-2 flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={animate}
+          onChange={(e) => setAnimate(e.currentTarget.checked)}
+          className="accent-ink-soft"
+        />
+        Animer l’eau, les volcans et les créatures
       </label>
 
       <HydroStatus />
