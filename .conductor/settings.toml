@@ -1,0 +1,17 @@
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+[scripts]
+setup = "npm ci"
+# Chaque espace de travail a ses propres ports : plusieurs serveurs Vite
+# peuvent tourner en même temps sans se gêner.
+run_mode = "concurrent"
+
+[scripts.run.dev]
+available_in = [ "local" ]
+command = "npm run dev -- --port $CONDUCTOR_PORT --strictPort"
+default = true
+icon = "play"
+
+[scripts.run.test]
+command = "npm run test:watch"
+icon = "test-tube"
