@@ -52,14 +52,19 @@ que la rotation l'emmène.
 - Les valeurs intermédiaires sont conservées volontairement : un `Uint8` plutôt qu'un masque binaire permet
   des bords adoucis et un pinceau progressif, et évite l'effet d'escalier qu'un masque 1 bit donnerait à cette
   résolution.
-- Pinceau **révéler / cacher** : même géométrie que les autres pinceaux (rayon, force, atténuation), même
-  chaîne de conversion écran → `lonLocal` et même passage par une commande undo/redo — voir
-  [l'éditeur](editeur.md). `révéler` pousse vers 255, `cacher` vers 0.
+- Pinceau **révéler / cacher** (outil Brouillard) : même géométrie que les autres pinceaux (rayon, force,
+  atténuation), même chaîne de conversion écran → `lonLocal` et même passage par une commande undo/redo —
+  voir [l'éditeur](editeur.md). `révéler` pousse vers 255, `cacher` vers 0, d'une fraction `force · poids`
+  du chemin restant à chaque pas, arrondie vers la cible pour qu'un passage léger finisse par l'atteindre.
+  Le rayon est en cellules de brouillard, affiché en kilomètres à l'équateur.
+- Boutons **Tout révéler** et **Tout cacher** : une commande chacun, sur toute la planète.
+- Un monde neuf ou régénéré part entièrement inconnu (`0` partout).
 
 ## Rendu du brouillard
 
 - **Dans l'éditeur** : surimpression translucide. Le MJ voit toujours le monde entier ; les zones non révélées
-  sont simplement assombries ou voilées, avec un bouton pour masquer complètement l'aperçu.
+  sont voilées de sépia. Le voile n'apparaît que sous l'outil Brouillard, sauf si le MJ coche « Garder le
+  voile avec les autres outils ». Détails de rendu dans [le rendu](rendu.md).
 - **À l'export** : les zones non révélées sont **remplacées** par le fond parchemin vierge, avec la mention
   « Terra incognita » placée dans les grandes plages inconnues. Rien de ce qui s'y trouve n'est dessiné — ni
   relief, ni rivières, ni lieux, ni libellés — car l'image part chez les joueurs et ne doit rien laisser

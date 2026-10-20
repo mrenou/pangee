@@ -11,7 +11,7 @@ import { DEFAULT_SETTINGS, RASTER_2K, type Place, type RasterSize, type Road } f
 import { generateWorldInWorker } from '@/workers/genClient';
 import { createAutosave, downloadWorld, loadLastWorld, readWorldFile } from '@/store/persistence';
 import type { WorldDocument } from '@/model/file';
-import { FOG_DOWNSCALE } from '@/model/world';
+import { fogSizeOf } from '@/model/world';
 
 export type GenerationStatus = 'idle' | 'running' | 'error';
 
@@ -25,7 +25,11 @@ interface WorldState {
 
   worldId: string;
   worldName: string;
+  /** Brouillard de guerre, en référentiel local ; présent dès qu'il y a un monde. */
   fog: Uint8Array | undefined;
+  fogSize: RasterSize;
+  /** Incrémenté quand le brouillard change hors du pinceau : annulation, nouveau monde. */
+  fogVersion: number;
   terrain: TerrainParams;
   placeDensity: number;
   places: readonly Place[];
@@ -54,6 +58,7 @@ interface WorldState {
   setRoads: (roads: readonly Road[]) => void;
   /** Force le rendu à relire le relief après une édition. */
   bumpHeightVersion: () => void;
+  bumpFogVersion: () => void;
   /** Remplace l'état courant par un monde relu. */
   adopt: (doc: WorldDocument) => void;
   /** Instantané du monde, tel qu'il sera enregistré. */
@@ -88,6 +93,8 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   worldId: 'monde-1',
   worldName: 'Pangée',
   fog: undefined,
+  fogSize: fogSizeOf(RASTER_2K),
+  fogVersion: 0,
   terrain: DEFAULT_TERRAIN_PARAMS,
   placeDensity: DEFAULT_PLACE_DENSITY,
   places: [],
@@ -146,14 +153,12 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   setPlaces: (places) => set({ places }),
   setRoads: (roads) => set({ roads }),
   bumpHeightVersion: () => set((s) => ({ heightVersion: s.heightVersion + 1 })),
+  bumpFogVersion: () => set((s) => ({ fogVersion: s.fogVersion + 1 })),
 
   snapshot: () => {
     const s = get();
     if (!s.height || !s.biomeOverride) return undefined;
-    const fogSize = {
-      width: Math.ceil(s.rasterSize.width / FOG_DOWNSCALE),
-      height: Math.ceil(s.rasterSize.height / FOG_DOWNSCALE),
-    };
+    const { fogSize } = s;
     return {
       id: s.worldId,
       name: s.worldName,
@@ -216,6 +221,8 @@ export const useWorldStore = create<WorldState>((set, get) => ({
       height: doc.height,
       biomeOverride: doc.biomeOverride,
       fog: doc.fog,
+      fogSize: doc.fogSize,
+      fogVersion: s.fogVersion + 1,
       places: doc.places,
       roads: doc.roads,
       terrain: { ...s.terrain, seed: doc.seed },
@@ -251,6 +258,10 @@ export const useWorldStore = create<WorldState>((set, get) => ({
       set((s) => ({
         height: result.height,
         biomeOverride: result.biomeOverride,
+        // Un monde neuf n'a encore rien montré aux joueurs.
+        fog: new Uint8Array(fogSizeOf(result.size).width * fogSizeOf(result.size).height),
+        fogSize: fogSizeOf(result.size),
+        fogVersion: s.fogVersion + 1,
         places: result.places,
         rasterSize: result.size,
         heightVersion: s.heightVersion + 1,

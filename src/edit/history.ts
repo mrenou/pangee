@@ -14,6 +14,9 @@ export interface EditTarget {
   readonly size: RasterSize;
   readonly height: Float32Array;
   readonly biomeOverride: Uint8Array;
+  /** Brouillard de guerre, à sa propre résolution, plus basse que le relief. */
+  readonly fogSize: RasterSize;
+  readonly fog: Uint8Array;
   places: readonly Place[];
   roads: readonly Road[];
 }
@@ -22,10 +25,11 @@ export interface Command {
   readonly label: string;
   /**
    * Une commande raster modifie le relief ou l'override : le rendu et le
-   * worker hydrologique doivent relire les couches. Une commande vectorielle
-   * ne touche qu'aux lieux et aux routes.
+   * worker hydrologique doivent relire les couches. Une commande de
+   * brouillard ne concerne que son calque, une commande vectorielle que les
+   * lieux et les routes.
    */
-  readonly kind: 'raster' | 'vector';
+  readonly kind: 'raster' | 'fog' | 'vector';
   /** Coût mémoire, pour borner la pile. */
   readonly bytes: number;
   apply: (target: EditTarget) => void;
@@ -38,25 +42,32 @@ function layerOf(target: EditTarget, patch: RasterPatch): Float32Array | Uint8Ar
       return target.height;
     case 'biomeOverride':
       return target.biomeOverride;
+    case 'fog':
+      return target.fog;
     default:
-      // fog et urban ne sont pas encore éditables ; la commande est alors sans
-      // effet plutôt que silencieusement fausse.
+      // urban n'est pas encore éditable ; la commande est alors sans effet
+      // plutôt que silencieusement fausse.
       return undefined;
   }
+}
+
+/** Le brouillard a sa propre grille : un patch s'y applique à sa taille. */
+function sizeOf(target: EditTarget, patch: RasterPatch): RasterSize {
+  return patch.layer === 'fog' ? target.fogSize : target.size;
 }
 
 export function rasterCommand(label: string, patch: RasterPatch): Command {
   return {
     label,
-    kind: 'raster',
+    kind: patch.layer === 'fog' ? 'fog' : 'raster',
     bytes: patchBytes(patch),
     apply: (target) => {
       const layer = layerOf(target, patch);
-      if (layer) applyPatch(patch, layer, target.size, 'after');
+      if (layer) applyPatch(patch, layer, sizeOf(target, patch), 'after');
     },
     revert: (target) => {
       const layer = layerOf(target, patch);
-      if (layer) applyPatch(patch, layer, target.size, 'before');
+      if (layer) applyPatch(patch, layer, sizeOf(target, patch), 'before');
     },
   };
 }

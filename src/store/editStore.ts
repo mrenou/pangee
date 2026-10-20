@@ -8,10 +8,18 @@
 
 import { create } from 'zustand';
 import { Biome } from '@/climate';
-import type { BrushShape, ReliefBrush, ReliefMode } from '@/edit/brush';
+import {
+  fillFog,
+  type BrushShape,
+  type FogBrush,
+  type ReliefBrush,
+  type ReliefMode,
+} from '@/edit/brush';
+import { GestureRecorder } from '@/edit/patch';
 import {
   History,
   placesCommand,
+  rasterCommand,
   roadsCommand,
   type Command,
   type EditTarget,
@@ -21,19 +29,21 @@ import { removeRoad, setRoadKind } from '@/edit/roads';
 import type { RoadKind } from '@/model/world';
 import { useWorldStore } from '@/store/worldStore';
 
-export type Tool = 'pan' | 'relief' | 'biome' | 'place' | 'road';
+export type Tool = 'pan' | 'relief' | 'biome' | 'place' | 'road' | 'fog';
 
 export const history = new History();
 
 /** Vue mutable du monde, telle que les commandes savent la manipuler. */
 export function editTarget(): EditTarget | undefined {
   const world = useWorldStore.getState();
-  if (!world.height || !world.biomeOverride) return undefined;
+  if (!world.height || !world.biomeOverride || !world.fog) return undefined;
 
   return {
     size: world.rasterSize,
     height: world.height,
     biomeOverride: world.biomeOverride,
+    fogSize: world.fogSize,
+    fog: world.fog,
     get places() {
       return useWorldStore.getState().places;
     },
@@ -54,6 +64,9 @@ interface EditState {
   relief: ReliefBrush;
   biomeShape: BrushShape;
   biomeValue: number;
+  fogBrush: FogBrush;
+  /** Voile du brouillard sur la carte, même hors de l'outil brouillard. */
+  showFogPreview: boolean;
   /** Outil route : chaque segment suit le relief (A*) au lieu d'aller droit. */
   roadFollowsTerrain: boolean;
   /** Type donné aux routes tracées. */
@@ -75,6 +88,10 @@ interface EditState {
   setRelief: (patch: Partial<ReliefBrush>) => void;
   setBiomeShape: (patch: Partial<BrushShape>) => void;
   setBiomeValue: (value: number) => void;
+  setFogBrush: (patch: Partial<FogBrush>) => void;
+  setShowFogPreview: (show: boolean) => void;
+  /** Révèle (255) ou cache (0) toute la planète, en une commande. */
+  fillFog: (value: number, label: string) => void;
   setRoadFollowsTerrain: (follow: boolean) => void;
   setNewRoadKind: (kind: RoadKind) => void;
   selectRoad: (id: string | undefined) => void;
@@ -113,6 +130,8 @@ export const useEditStore = create<EditState>((set, get) => ({
   relief: DEFAULT_RELIEF,
   biomeShape: { radius: 10, falloff: 0 },
   biomeValue: Biome.TemperateForest,
+  fogBrush: { mode: 'reveal', radius: 4, falloff: 0.6, strength: 0.5 },
+  showFogPreview: false,
   roadFollowsTerrain: false,
   newRoadKind: 'road',
   selectedRoadId: undefined,
@@ -127,6 +146,20 @@ export const useEditStore = create<EditState>((set, get) => ({
   setRelief: (patch) => set((s) => ({ relief: { ...s.relief, ...patch } })),
   setBiomeShape: (patch) => set((s) => ({ biomeShape: { ...s.biomeShape, ...patch } })),
   setBiomeValue: (biomeValue) => set({ biomeValue }),
+  setFogBrush: (patch) => set((s) => ({ fogBrush: { ...s.fogBrush, ...patch } })),
+  setShowFogPreview: (showFogPreview) => set({ showFogPreview }),
+
+  fillFog: (value, label) => {
+    const target = editTarget();
+    if (!target) return;
+    const recorder = new GestureRecorder('fog', target.fogSize);
+    fillFog(target.fogSize, target.fog, value, recorder);
+    const patch = recorder.finish(target.fog);
+    if (!patch) return;
+    get().record(rasterCommand(label, patch));
+    useWorldStore.getState().bumpFogVersion();
+    useWorldStore.getState().scheduleAutosave();
+  },
   setRoadFollowsTerrain: (roadFollowsTerrain) => set({ roadFollowsTerrain }),
   setNewRoadKind: (newRoadKind) => set({ newRoadKind }),
   selectRoad: (selectedRoadId) => set({ selectedRoadId }),
@@ -195,6 +228,7 @@ export const useEditStore = create<EditState>((set, get) => ({
     const command = history.undo(target);
     set(syncFlags());
     if (command?.kind === 'raster') useWorldStore.getState().bumpHeightVersion();
+    if (command?.kind === 'fog') useWorldStore.getState().bumpFogVersion();
     useWorldStore.getState().scheduleAutosave();
   },
 
@@ -204,6 +238,7 @@ export const useEditStore = create<EditState>((set, get) => ({
     const command = history.redo(target);
     set(syncFlags());
     if (command?.kind === 'raster') useWorldStore.getState().bumpHeightVersion();
+    if (command?.kind === 'fog') useWorldStore.getState().bumpFogVersion();
     useWorldStore.getState().scheduleAutosave();
   },
 

@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { applyPatch, GestureRecorder, shortestDelta } from '@/edit/patch';
 import { History, rasterCommand, placesCommand, type EditTarget } from '@/edit/history';
-import { brushWeight, paintBiome, paintRelief } from '@/edit/brush';
+import {
+  brushWeight,
+  fillFog,
+  paintBiome,
+  paintFog,
+  paintRelief,
+  type FogBrush,
+} from '@/edit/brush';
 import { idx } from '@/model/coords';
 import type { Place, RasterSize } from '@/model/world';
 
@@ -12,6 +19,8 @@ function target(): EditTarget {
     size,
     height: new Float32Array(size.width * size.height),
     biomeOverride: new Uint8Array(size.width * size.height),
+    fogSize: { width: 4, height: 2 },
+    fog: new Uint8Array(8),
     places: [],
     roads: [],
   };
@@ -315,5 +324,46 @@ describe('pinceau de biome', () => {
     const recorder = new GestureRecorder('biomeOverride', size);
     paintBiome(size, t.biomeOverride, 8, 4, { radius: 1, falloff: 0 }, 5, recorder);
     expect(t.biomeOverride[idx(12, 4, size.width)]).toBe(0);
+  });
+});
+
+describe('pinceau de brouillard', () => {
+  const fogSize: RasterSize = { width: 16, height: 8 };
+
+  it('révèle progressivement, et finit par atteindre 255', () => {
+    const fog = new Uint8Array(16 * 8);
+    const brush: FogBrush = { mode: 'reveal', radius: 2, falloff: 0, strength: 0.5 };
+    paintFog(fogSize, fog, 8, 4, brush, new GestureRecorder('fog', fogSize));
+    const once = fog[idx(8, 4, 16)]!;
+    expect(once).toBeGreaterThan(0);
+    expect(once).toBeLessThan(255);
+
+    for (let i = 0; i < 20; i += 1) {
+      paintFog(fogSize, fog, 8, 4, brush, new GestureRecorder('fog', fogSize));
+    }
+    expect(fog[idx(8, 4, 16)]).toBe(255);
+    // Hors du disque, rien ne bouge.
+    expect(fog[idx(0, 0, 16)]).toBe(0);
+  });
+
+  it('cache vers zéro', () => {
+    const fog = new Uint8Array(16 * 8).fill(255);
+    const brush: FogBrush = { mode: 'hide', radius: 1, falloff: 0, strength: 1 };
+    paintFog(fogSize, fog, 3, 3, brush, new GestureRecorder('fog', fogSize));
+    expect(fog[idx(3, 3, 16)]).toBe(0);
+  });
+
+  it('s annule comme un pinceau de relief, à la taille du brouillard', () => {
+    const t = target();
+    t.fog.fill(0);
+    const recorder = new GestureRecorder('fog', t.fogSize);
+    fillFog(t.fogSize, t.fog, 255, recorder);
+    const command = rasterCommand('tout révélé', recorder.finish(t.fog)!);
+    expect(command.kind).toBe('fog');
+
+    command.revert(t);
+    expect([...t.fog]).toEqual(new Array(8).fill(0));
+    command.apply(t);
+    expect([...t.fog]).toEqual(new Array(8).fill(255));
   });
 });

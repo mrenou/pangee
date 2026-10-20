@@ -244,6 +244,25 @@ Le test de collision se fait sur des rectangles en espace écran, indexés dans 
 
 Aux deux coupures, un trait de faille discret (encre, léger tremblement procédural) dessiné **en référentiel monde**, donc à latitude fixe quelle que soit la date. Masquable depuis l'UI ; masqué par défaut à l'export si le MJ veut une carte « propre ». Les escarpements et cascades détectés par l'hydrologie s'y greffent comme symboles.
 
+## Brouillard de guerre
+
+Un second quad plein écran, `src/render/fogLayer.ts`, posé **au-dessus de toutes les couches** — symboles,
+rivières, routes et libellés compris. Il partage le `UniformGroup` du terrain (caméra, décalages d'anneaux,
+coupures) : il ne peut donc pas se désaligner du relief, et le masque, stocké en référentiel local, glisse avec
+son anneau. Trois modes : `off`, `preview` (voile sépia à 55 % d'opacité, sous l'outil brouillard ou à la
+demande du MJ) et `export` (parchemin opaque, voir [le partage](partage.md)).
+
+| Point         | Choix                                                                                    |
+| ------------- | ---------------------------------------------------------------------------------------- |
+| Texture       | `r8unorm`, 256×128 pour un relief 2048×1024, `nearest`                                   |
+| Interpolation | bilinéaire à la main dans le shader, wrap en x compris, comme le relief                  |
+| Bord          | `smoothstep(0.25, 0.75, fog + bruit)`, bruit de 0,6 cellule par cellule de brouillard    |
+| Mise à jour   | réécriture en place au fil du pinceau ; renvoi complet après annulation ou nouveau monde |
+
+Un bruit de frange plus fin que la cellule de brouillard mouchetait le bord en vue d'ensemble au lieu de le
+faire onduler. À la coupure, l'interpolation mélange sur une cellule de brouillard deux lignes voisines en
+référentiel local : la frange peut y déborder d'une cellule, ce qui ne se voit pas.
+
 ## Performance
 
 Cible : 60 fps en 1080p.
