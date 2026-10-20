@@ -45,6 +45,7 @@ function pushAll(renderer: MapRenderer): void {
 
   if (world.height) renderer.setHeight(world.rasterSize, world.height);
   if (world.fog) renderer.setFog(world.fogSize, world.fog);
+  renderer.setAnimated(world.animate);
   renderer.setFogMode(
     fogModeOf(useEditStore.getState(), useExportStore.getState().options.applyFog),
   );
@@ -233,6 +234,11 @@ export function MapCanvas() {
   useEffect(() => {
     rendererRef.current?.setSelectedPlace(tool === 'place' ? selectedPlaceId : undefined);
   }, [tool, selectedPlaceId]);
+
+  const animate = useWorldStore((s) => s.animate);
+  useEffect(() => {
+    rendererRef.current?.setAnimated(animate);
+  }, [animate]);
 
   // Le cadre d'export ne se montre que sous son outil.
   const exportRect = useExportStore((s) => s.rect);
