@@ -227,6 +227,22 @@ chaîne, et un statut de publication détaché de celui du commit.
 
 ---
 
+## 2026-10-20 — Licence Apache-2.0
+
+**Décidé.** Le code est sous licence Apache-2.0 (`LICENSE`), avec un fichier `NOTICE` qui nomme le projet
+et son auteur. Les deux fichiers ont été ajoutés à tout l'historique, depuis le premier commit, par
+réécriture : aucune version publiée de Pangée n'est restée sans licence.
+
+_Pourquoi :_ réutilisation libre, à condition de citer le projet. Apache-2.0 oblige tout dérivé
+redistribué à reprendre `NOTICE`, ce qui rend la citation plus visible qu'une simple mention de copyright,
+et couvre aussi les brevets.
+
+_Écarté :_ MIT — même liberté, mais l'attribution se réduit à la mention de copyright ; CC BY 4.0 —
+pensée pour les œuvres, pas pour le code ; une licence copyleft (GPL, AGPL) — imposerait la licence aux
+dérivés, au-delà du besoin.
+
+---
+
 ## Points à trancher plus tard
 
 Décisions volontairement repoussées, à documenter ici quand elles seront prises :
