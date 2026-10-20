@@ -301,13 +301,12 @@ export function MapCanvas() {
   // uniforme ayant changé. Voir docs/temps.md.
   useEffect(() => {
     if (heightVersion === 0) return;
-    useHydroStore.getState().schedule({
-      ringConfig,
-      tDays,
-      seaLevelM,
-      rainPerCell: RAIN_PER_CELL,
-      seed: useWorldStore.getState().terrain.seed,
-    });
+    const { playing, terrain } = useWorldStore.getState();
+    useHydroStore.getState().schedule(
+      { ringConfig, tDays, seaLevelM, rainPerCell: RAIN_PER_CELL, seed: terrain.seed },
+      // Pendant un time-lapse, l'eau est recalculée au rythme du worker.
+      playing,
+    );
   }, [heightVersion, ringConfig, tDays, seaLevelM]);
 
   const waterVersion = useHydroStore((s) => s.waterVersion);

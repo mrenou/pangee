@@ -302,7 +302,8 @@ Restent à faire, décrits ici pour mémoire :
 
 - **Cascades** : voile blanc au franchissement d'une coupure, dès que l'hydrologie les détectera.
 - **Créatures** : sprites suivant des trajectoires à points de passage, vitesse réglable ; purement décoratif.
-- **Time-lapse** : lecture de la date à vitesse réglable, avec l'**hydrologie précalculée par images-clés** et interpolée entre deux clés ; le terrain, lui, suit la date en continu.
+
+Le **time-lapse** est décrit dans [le temps](temps.md).
 
 ## Points ouverts
 

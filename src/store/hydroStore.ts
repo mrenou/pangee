@@ -36,7 +36,12 @@ interface HydroState {
 
   /** Renvoie au worker le relief et l'override, après un nouveau monde ou une édition. */
   setLayers: (size: RasterSize, height: Float32Array, biomeOverride: Uint8Array) => Promise<void>;
-  schedule: (request: HydroRequest) => void;
+  /**
+   * Programme un calcul. `immediate` saute le debounce : pendant un time-lapse
+   * la date ne s'arrête jamais, un debounce ne laisserait passer aucun calcul.
+   * Les demandes restent coalescées par le client du worker.
+   */
+  schedule: (request: HydroRequest, immediate?: boolean) => void;
 }
 
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -53,9 +58,10 @@ export const useHydroStore = create<HydroState>((set) => ({
     await sendLayersToHydro(size, height, biomeOverride);
   },
 
-  schedule: (request) => {
+  schedule: (request, immediate = false) => {
     if (timer !== undefined) clearTimeout(timer);
-    timer = setTimeout(() => {
+    timer = undefined;
+    const run = (): void => {
       timer = undefined;
       set({ computing: true, error: undefined });
       void requestHydro(
@@ -80,6 +86,8 @@ export const useHydroStore = create<HydroState>((set) => ({
         },
         (message) => set({ error: message, computing: false }),
       );
-    }, HYDRO_DEBOUNCE_MS);
+    };
+    if (immediate) run();
+    else timer = setTimeout(run, HYDRO_DEBOUNCE_MS);
   },
 }));

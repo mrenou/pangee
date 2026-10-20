@@ -172,6 +172,22 @@ le rendu par tuiles, gardé en réserve si le plafond de 8000 px devient gênant
 
 ---
 
+## 2026-10-20 — Time-lapse sans images-clés
+
+**Décidé.** Pendant la lecture, l'hydrologie est recalculée en continu, au rythme du worker et sans
+debounce ; entre deux calculs, le rattrapage de retard déjà utilisé pour le curseur de date fait glisser
+l'eau avec son anneau. La date avance par pas d'environ 33 ms. Remplace, pour la v1, le précalcul par
+images-clés prévu au cadrage (D5, [le rendu](rendu.md)).
+
+_Pourquoi :_ interpoler deux états d'eau suppose deux jeux de textures monde et deux dates de rattrapage
+dans le shader, pour un gain peu visible : à l'équilibre instantané, l'eau d'une date voisine décalée de son
+anneau est déjà juste à une cellule près. Le recalcul continu ne demande rien de neuf.
+
+_Écarté pour l'instant :_ les images-clés précalculées et interpolées, gardées en point ouvert de
+[le temps](temps.md) pour le jour où le recalcul ne suivra plus.
+
+---
+
 ## Points à trancher plus tard
 
 Décisions volontairement repoussées, à documenter ici quand elles seront prises :
