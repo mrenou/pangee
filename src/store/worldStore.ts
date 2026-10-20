@@ -24,6 +24,9 @@ interface WorldState {
   bookStyle: boolean;
   /** Eau, volcans et créatures animés. Réglage d'affichage, non enregistré. */
   animate: boolean;
+  /** Time-lapse en cours : la date avance d'elle-même. */
+  playing: boolean;
+  playSpeedDaysPerS: number;
 
   worldId: string;
   worldName: string;
@@ -55,6 +58,8 @@ interface WorldState {
   setShowFaults: (showFaults: boolean) => void;
   setBookStyle: (bookStyle: boolean) => void;
   setAnimate: (animate: boolean) => void;
+  setPlaying: (playing: boolean) => void;
+  setPlaySpeed: (daysPerS: number) => void;
   setTerrain: (patch: Partial<TerrainParams>) => void;
   setPlaceDensity: (placeDensity: number) => void;
   setPlaces: (places: readonly Place[]) => void;
@@ -73,6 +78,43 @@ interface WorldState {
   scheduleAutosave: () => void;
   /** Façonne un monde neuf ; `false` si la génération a échoué. */
   regenerate: () => Promise<boolean>;
+}
+
+/** Dernière date proposée par le curseur ; au-delà, la lecture s'arrête. */
+export const MAX_T_DAYS = 73_000;
+
+/**
+ * Pas du time-lapse. La date n'avance qu'une trentaine de fois par seconde :
+ * chaque pas redessine symboles, routes et rivières, et le faire à chaque
+ * image du navigateur saccadait la carte sans rien montrer de plus.
+ */
+const TIMELAPSE_STEP_MS = 33;
+
+/**
+ * Boucle du time-lapse : avance la date au rythme réglé, tant que la lecture
+ * n'est pas interrompue. Le temps réel écoulé fait foi, pas le nombre
+ * d'images : un onglet ralenti ne ralentit pas la campagne.
+ */
+function startTimelapse(get: () => WorldState, set: (partial: Partial<WorldState>) => void): void {
+  let last = performance.now();
+  let pending = 0;
+  const step = (now: number): void => {
+    const state = get();
+    if (!state.playing) return;
+    pending += now - last;
+    last = now;
+    if (pending >= TIMELAPSE_STEP_MS) {
+      const next = Math.min(MAX_T_DAYS, state.tDays + (state.playSpeedDaysPerS * pending) / 1000);
+      pending = 0;
+      state.setTDays(next);
+      if (next >= MAX_T_DAYS) {
+        set({ playing: false });
+        return;
+      }
+    }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 /**
@@ -103,6 +145,8 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   showFaults: true,
   bookStyle: true,
   animate: prefersMotion(),
+  playing: false,
+  playSpeedDaysPerS: 30,
 
   worldId: 'monde-1',
   worldName: 'Pangée',
@@ -163,6 +207,12 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   setShowFaults: (showFaults) => set({ showFaults }),
   setBookStyle: (bookStyle) => set({ bookStyle }),
   setAnimate: (animate) => set({ animate }),
+  setPlaying: (playing) => {
+    if (playing === get().playing) return;
+    set({ playing });
+    if (playing) startTimelapse(get, set);
+  },
+  setPlaySpeed: (playSpeedDaysPerS) => set({ playSpeedDaysPerS }),
   setTerrain: (patch) => set((s) => ({ terrain: { ...s.terrain, ...patch } })),
   setPlaceDensity: (placeDensity) => set({ placeDensity }),
   setPlaces: (places) => set({ places }),

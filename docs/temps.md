@@ -115,10 +115,19 @@ Le curseur de date est l'outil le plus utilisé : il doit rester fluide.
   shader, voir [le rendu](rendu.md).
 - L'**hydrologie** est recalculée dans un Web Worker, avec un debounce de 150 ms. Pendant le
   glissement on garde l'eau de la dernière date calculée ; elle rattrape le terrain dès l'arrêt.
-- Le **time-lapse** (animation de la date) précalcule l'hydrologie sur des images-clés et
-  interpole entre elles, plutôt que de tenter un recalcul par image.
+- Le **time-lapse** (bouton Lire, vitesse de 1 à 365 jours par seconde) fait avancer la date au
+  rythme du temps réel écoulé, par pas d'environ 33 ms : chaque pas redessine symboles, routes et
+  rivières, et le faire à chaque image du navigateur saccadait la carte sans rien montrer de plus.
+  Pendant la lecture, l'hydrologie est demandée **sans debounce** — un debounce ne laisserait
+  passer aucun calcul tant que la date bouge — et le client du worker ne garde que la dernière
+  demande : l'eau est recalculée au rythme du worker, et entre deux calculs le rattrapage de retard
+  la fait glisser avec son anneau. La lecture s'arrête d'elle-même au bout du curseur. Voir
+  [les décisions](decisions.md).
 
 ## Points ouverts
+
+- Time-lapse par images-clés précalculées et interpolées, si le recalcul continu ne suffit plus
+  (résolution 4096, hydrologie volumétrique).
 
 - Longueur de l'année et calendrier de campagne (noms de mois, saisons).
 - Faut-il faire varier le niveau de mer avec la date ?

@@ -1,7 +1,7 @@
 import { kmPerDay, midLat, ringOffsetsDeg } from '@/model/time';
 import { RING_IDS, type RingId } from '@/model/ring';
 import { useHydroStore } from '@/store/hydroStore';
-import { useWorldStore } from '@/store/worldStore';
+import { MAX_T_DAYS, useWorldStore } from '@/store/worldStore';
 import { Field } from '@/ui/Field';
 
 const RING_LABELS: Readonly<Record<RingId, string>> = {
@@ -49,7 +49,7 @@ export function RingPanel() {
         label="Date de campagne"
         value={`an ${years} · ${Math.round(tDays)} j`}
         min={0}
-        max={73_000}
+        max={MAX_T_DAYS}
         step={1}
         current={tDays}
         onChange={setTDays}
@@ -59,13 +59,16 @@ export function RingPanel() {
           ? 'Le monde d’avant le Cataclysme : les anneaux sont alignés.'
           : `Décalages : ${offsets.north.toFixed(1)}° · ${offsets.equator.toFixed(1)}° · ${offsets.south.toFixed(1)}°`}
       </p>
-      <button
-        type="button"
-        onClick={() => setTDays(cfg.t0)}
-        className="mt-2 rounded border border-ink-soft/40 px-2 py-1 text-xs hover:bg-parchment-dark"
-      >
-        Revenir au Cataclysme
-      </button>
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        <button
+          type="button"
+          onClick={() => setTDays(cfg.t0)}
+          className="rounded border border-ink-soft/40 px-2 py-1 text-xs hover:bg-parchment-dark"
+        >
+          Revenir au Cataclysme
+        </button>
+        <TimelapseControls />
+      </div>
 
       <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-ink-soft">
         Les anneaux
@@ -156,6 +159,44 @@ export function RingPanel() {
 
       <HydroStatus />
     </section>
+  );
+}
+
+const PLAY_SPEEDS = [1, 10, 30, 100, 365] as const;
+
+/** Lecture de la date : les anneaux tournent sous les yeux du MJ. Voir docs/temps.md. */
+function TimelapseControls() {
+  const playing = useWorldStore((s) => s.playing);
+  const setPlaying = useWorldStore((s) => s.setPlaying);
+  const speed = useWorldStore((s) => s.playSpeedDaysPerS);
+  const setSpeed = useWorldStore((s) => s.setPlaySpeed);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setPlaying(!playing)}
+        aria-pressed={playing}
+        className="rounded border border-ink-soft/40 px-2 py-1 text-xs hover:bg-parchment-dark"
+      >
+        {playing ? '❚❚ Pause' : '▶ Lire'}
+      </button>
+      <label className="sr-only" htmlFor="play-speed">
+        Vitesse de lecture
+      </label>
+      <select
+        id="play-speed"
+        value={speed}
+        onChange={(e) => setSpeed(Number(e.currentTarget.value))}
+        className="rounded border border-ink-soft/40 bg-parchment-dark px-1 py-1 text-xs"
+      >
+        {PLAY_SPEEDS.map((daysPerS) => (
+          <option key={daysPerS} value={daysPerS}>
+            {daysPerS} j/s
+          </option>
+        ))}
+      </select>
+    </>
   );
 }
 
