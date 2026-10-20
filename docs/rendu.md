@@ -282,12 +282,17 @@ les créatures », non enregistré, coupé d'office si le système demande de r�
 Les tests de bout en bout tournent en `reducedMotion: 'reduce'`, sans quoi leurs comparaisons d'images au
 pixel près n'auraient pas de sens ; ceux qui vérifient l'animation le rétablissent.
 
-| Effet                | Où                        | Principe                                                                                    |
-| -------------------- | ------------------------- | ------------------------------------------------------------------------------------------- |
-| Houle                | shader terrain            | les isolignes des hachures ondulent, chacune à sa phase tirée d'un bruit                    |
-| Vagues               | shader terrain            | traits clairs tous les 45 m de profondeur, qui glissent vers le rivage, sous 140 m d'eau    |
-| Reflets des lacs     | shader terrain            | bruit qui dérive lentement à la surface                                                     |
-| Courant des rivières | `src/render/riverFlow.ts` | un quad par segment, portant sa distance à la source ; tirets clairs qui filent vers l'aval |
+| Effet                | Où                           | Principe                                                                                      |
+| -------------------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
+| Houle                | shader terrain               | les isolignes des hachures ondulent, chacune à sa phase tirée d'un bruit                      |
+| Vagues               | shader terrain               | traits clairs tous les 45 m de profondeur, qui glissent vers le rivage, sous 140 m d'eau      |
+| Reflets des lacs     | shader terrain               | bruit qui dérive lentement à la surface                                                       |
+| Courant des rivières | `src/render/riverFlow.ts`    | un quad par segment, portant sa distance à la source ; tirets clairs qui filent vers l'aval   |
+| Volcans              | `src/render/volcanoLayer.ts` | lueur qui palpite et six bouffées qui montent, grossissent, dérivent vers l'est et s'effacent |
+
+Les volcans sont les lieux de `kind === 'volcano'`, posés par la génération ou par le MJ. Leur calque passe
+au-dessus des icônes mais **sous le brouillard** : à l'export, un volcan inconnu ne se trahit pas par sa
+fumée. Chacun a sa phase, tirée de son identifiant, pour ne pas fumer en cadence.
 
 Le courant est un mesh à shader propre plutôt qu'un tracé redessiné : la géométrie n'est reconstruite qu'avec
 le réseau ou la date, la largeur est tenue en pixels par un uniforme de zoom, et défiler ne coûte qu'un
@@ -296,7 +301,6 @@ uniforme. Les rivières de moins d'un pixel de reflet n'en portent pas.
 Restent à faire, décrits ici pour mémoire :
 
 - **Cascades** : voile blanc au franchissement d'une coupure, dès que l'hydrologie les détectera.
-- **Volcans** : `Place.kind === 'volcano'` alimente un émetteur de particules (fumée, lueur).
 - **Créatures** : sprites suivant des trajectoires à points de passage, vitesse réglable ; purement décoratif.
 - **Time-lapse** : lecture de la date à vitesse réglable, avec l'**hydrologie précalculée par images-clés** et interpolée entre deux clés ; le terrain, lui, suit la date en continu.
 
