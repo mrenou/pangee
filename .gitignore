@@ -39,6 +39,8 @@ blob-report/
 
 # Mondes de test exportés
 *.pangee
+# …sauf la carte d'ouverture, livrée avec le site
+!public/default-world.pangee
 
 # Outils
 .serena/

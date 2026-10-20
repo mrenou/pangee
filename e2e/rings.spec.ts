@@ -27,6 +27,14 @@ async function canvasHash(page: Page): Promise<string> {
     .digest('hex');
 }
 
+/** Nombre d'anneaux affiché : le monde de départ n'en a pas un nombre fixe. */
+async function ringCount(page: Page): Promise<number> {
+  const text = await page.getByText(/\d anneaux? sur 8 possibles\./).textContent();
+  return Number(/(\d)/.exec(text ?? '')?.[1]);
+}
+
+const anneaux = (n: number): string => `${n} anneau${n > 1 ? 'x' : ''} sur 8 possibles.`;
+
 const scinder = (page: Page) => page.getByRole('button', { name: 'Scinder' });
 const fusionner = (page: Page) => page.getByRole('button', { name: 'Fusionner' });
 
@@ -37,7 +45,11 @@ test('scinder un anneau en ajoute un, qu on peut faire tourner, puis fusionner',
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
   let version = await waitForWorld(page);
-  await expect(page.getByText('3 anneaux sur 8 possibles.')).toBeVisible();
+  const start = await ringCount(page);
+  // Scinder suppose qu'il reste de la place pour un anneau de plus.
+  expect(start).toBeLessThan(8);
+  // Le nouvel anneau reçoit le premier identifiant libre, `ring-<n + 1>`.
+  const omega = page.locator(`#omega-ring-${start + 1}`);
 
   // On avance la date : un anneau neuf qui ne tournerait pas comme son parent
   // ferait sauter sa moitié de carte sur-le-champ.
@@ -49,7 +61,7 @@ test('scinder un anneau en ajoute un, qu on peut faire tourner, puis fusionner',
   const before = await canvasHash(page);
 
   await scinder(page).first().click();
-  await expect(page.getByText('4 anneaux sur 8 possibles.')).toBeVisible();
+  await expect(page.getByText(anneaux(start + 1))).toBeVisible();
   await expect(page.getByRole('button', { name: /Annuler : anneau scindé/ })).toBeVisible();
   // L'eau est recalculée pour le nouveau découpage : on attend qu'elle arrive.
   await waitForWorld(page, version);
@@ -57,7 +69,7 @@ test('scinder un anneau en ajoute un, qu on peut faire tourner, puis fusionner',
   expect(await canvasHash(page)).toBe(before);
 
   // Le nouvel anneau se règle comme les autres.
-  await page.locator('#omega-ring-4').fill('-0.3');
+  await omega.fill('-0.3');
   await page.waitForTimeout(400);
   expect(await canvasHash(page)).not.toBe(before);
 
@@ -65,13 +77,13 @@ test('scinder un anneau en ajoute un, qu on peut faire tourner, puis fusionner',
   await page.waitForTimeout(2500);
   await page.reload();
   await waitForWorld(page);
-  await expect(page.getByText('4 anneaux sur 8 possibles.')).toBeVisible();
-  await expect(page.locator('#omega-ring-4')).toHaveValue('-0.3');
+  await expect(page.getByText(anneaux(start + 1))).toBeVisible();
+  await expect(omega).toHaveValue('-0.3');
 
   await fusionner(page).first().click();
-  await expect(page.getByText('3 anneaux sur 8 possibles.')).toBeVisible();
+  await expect(page.getByText(anneaux(start))).toBeVisible();
   await page.getByRole('button', { name: /Annuler : anneaux fusionnés/ }).click();
-  await expect(page.getByText('4 anneaux sur 8 possibles.')).toBeVisible();
+  await expect(page.getByText(anneaux(start + 1))).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -80,7 +92,7 @@ test('le bouton Scinder se désactive au huitième anneau', async ({ page }) => 
   await waitForWorld(page);
   // Scinder toujours le même anneau le réduirait au pôle : on alterne le
   // premier et le dernier, qui restent les plus larges.
-  for (let n = 3; n < 8; n += 1) {
+  for (let n = await ringCount(page); n < 8; n += 1) {
     await (n % 2 === 1 ? scinder(page).first() : scinder(page).last()).click();
   }
   await expect(page.getByText('8 anneaux sur 8 possibles.')).toBeVisible();

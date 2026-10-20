@@ -120,6 +120,20 @@ export function downloadBlob(blob: Blob, fileName: string): void {
   URL.revokeObjectURL(url);
 }
 
+/** Monde livré avec le site, ouvert quand le navigateur n'en a encore aucun. */
+export const DEFAULT_WORLD_FILE = 'default-world.pangee';
+
+export async function fetchDefaultWorld(): Promise<Result<WorldDocument>> {
+  try {
+    const response = await fetch(`${import.meta.env.BASE_URL}${DEFAULT_WORLD_FILE}`);
+    if (!response.ok)
+      return { ok: false, error: `Carte par défaut introuvable (${response.status}).` };
+    return parseWorld(new Uint8Array(await response.arrayBuffer()));
+  } catch (cause) {
+    return { ok: false, error: cause instanceof Error ? cause.message : String(cause) };
+  }
+}
+
 export async function readWorldFile(file: File): Promise<Result<WorldDocument>> {
   const buffer = await file.arrayBuffer();
   return parseWorld(new Uint8Array(buffer));

@@ -229,6 +229,7 @@ export function FilePanel() {
   const inputRef = useRef<HTMLInputElement>(null);
   const exportWorld = useWorldStore((s) => s.exportWorld);
   const importWorld = useEditStore((s) => s.importWorld);
+  const loadDefaultWorld = useEditStore((s) => s.loadDefaultWorld);
   const edited = useEditStore((s) => s.edited);
   const error = useWorldStore((s) => s.error);
 
@@ -251,6 +252,23 @@ export function FilePanel() {
           Importer
         </button>
       </div>
+      <button
+        type="button"
+        onClick={() => {
+          if (
+            edited &&
+            !window.confirm(
+              'Ce monde a été édité, rouvrir la carte de Pangée le remplacera. Exportez-le d’abord pour le garder. Continuer ?',
+            )
+          ) {
+            return;
+          }
+          void loadDefaultWorld();
+        }}
+        className="mt-1 w-full rounded border border-ink-soft/40 px-2 py-1 text-xs hover:bg-parchment-dark"
+      >
+        Rouvrir la carte de Pangée
+      </button>
       <input
         ref={inputRef}
         type="file"

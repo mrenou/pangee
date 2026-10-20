@@ -274,6 +274,21 @@ encore.
 
 ---
 
+## 2026-10-20 — Le site s'ouvre sur la carte dessinée de Pangée
+
+**Décidé.** Sans monde enregistré dans le navigateur, l'application ouvre `public/default-world.pangee` —
+la carte peinte par le MJ, sept anneaux, villes et routes — au lieu de générer un monde. La génération
+reste accessible par « Régénérer », qui vide désormais aussi les routes de l'ancien relief. Les tests de
+bout en bout ne supposent plus le nombre d'anneaux ni la graine du monde d'ouverture.
+
+_Pourquoi :_ Pangée est un monde précis, pas un générateur ; c'est lui que le MJ veut montrer d'abord.
+
+_Écarté :_ produire la carte au build depuis l'image — une étape de plus au `dev` comme au `build`, pour
+3 Mo économisés dans le dépôt ; régénérer en gardant les routes — elles traversaient la mer du nouveau
+relief.
+
+---
+
 ## Points à trancher plus tard
 
 Décisions volontairement repoussées, à documenter ici quand elles seront prises :

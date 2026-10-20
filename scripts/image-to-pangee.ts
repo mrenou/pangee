@@ -30,7 +30,7 @@ import { fogSizeOf, RASTER_2K, type Place, type Road } from '@/model/world';
 
 // --- Monde produit ------------------------------------------------------------------------------
 
-const WORLD_NAME = 'Pangée dessinée';
+const WORLD_NAME = 'Pangée';
 const SEED = 'pangee-dessinee';
 const RADIUS_KM = 6371;
 const SEA_LEVEL_M = 0;

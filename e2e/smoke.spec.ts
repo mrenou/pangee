@@ -133,6 +133,11 @@ test('la carte se dessine et les anneaux glissent avec la date', async ({ page }
 test('la même graine redonne le même monde', async ({ page }) => {
   await page.goto('/');
   let version = await waitForStillMap(page);
+  // Le monde d'ouverture est une carte dessinée, pas une génération : la
+  // référence est donc d'abord régénérée.
+  await page.getByLabel('Graine').fill('pangee');
+  await page.getByRole('button', { name: 'Régénérer' }).click();
+  version = await waitForStillMap(page, version);
   const first = await canvasHash(page);
 
   await page.getByLabel('Graine').fill('autre-monde');
@@ -182,7 +187,7 @@ test('peindre le relief, annuler, et retrouver son monde après rechargement', a
   page.on('pageerror', (error) => errors.push(error.message));
 
   await page.goto('/');
-  await waitForStillMap(page);
+  let version = await waitForStillMap(page);
   const pristine = await canvasHash(page);
 
   // Un trait de pinceau, en un seul geste.
@@ -194,7 +199,9 @@ test('peindre le relief, annuler, et retrouver son monde après rechargement', a
     await page.mouse.move(box.x + 320 + i * 20, box.y + 300 + i * 4);
   }
   await page.mouse.up();
-  await page.waitForTimeout(1500);
+  // Chaque étape relance l'hydrologie : on attend son résultat plutôt qu'un
+  // délai fixe, trop court sur une machine lente.
+  version = await waitForStillMap(page, version);
 
   const painted = await canvasHash(page);
   expect(painted).not.toBe(pristine);
@@ -202,11 +209,11 @@ test('peindre le relief, annuler, et retrouver son monde après rechargement', a
   // Le geste entier ne fait qu'une entrée de pile : une seule annulation suffit
   // à effacer tout le trait, et elle rend l'image d'origine au pixel près.
   await page.getByRole('button', { name: /^Annuler/ }).click();
-  await page.waitForTimeout(1500);
+  version = await waitForStillMap(page, version);
   expect(await canvasHash(page)).toBe(pristine);
 
   await page.getByRole('button', { name: 'Rétablir' }).click();
-  await page.waitForTimeout(1500);
+  await waitForStillMap(page, version);
   expect(await canvasHash(page)).toBe(painted);
 
   // L'autosave est différé : on lui laisse le temps d'écrire avant de recharger.

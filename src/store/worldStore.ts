@@ -16,7 +16,13 @@ import {
   type Road,
 } from '@/model/world';
 import { generateWorldInWorker } from '@/workers/genClient';
-import { createAutosave, downloadWorld, loadLastWorld, readWorldFile } from '@/store/persistence';
+import {
+  createAutosave,
+  downloadWorld,
+  fetchDefaultWorld,
+  loadLastWorld,
+  readWorldFile,
+} from '@/store/persistence';
 import type { WorldDocument } from '@/model/file';
 import { fogSizeOf } from '@/model/world';
 
@@ -90,6 +96,8 @@ interface WorldState {
   /** Remplace le monde courant par un fichier ; `false` si la lecture a échoué. */
   importWorld: (file: File) => Promise<boolean>;
   restoreFromStorage: () => Promise<boolean>;
+  /** Ouvre la carte de Pangée livrée avec le site ; `false` si elle est illisible. */
+  loadDefaultWorld: () => Promise<boolean>;
   scheduleAutosave: () => void;
   /** Façonne un monde neuf ; `false` si la génération a échoué. */
   regenerate: () => Promise<boolean>;
@@ -279,6 +287,17 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     return true;
   },
 
+  loadDefaultWorld: async () => {
+    const parsed = await fetchDefaultWorld();
+    if (!parsed.ok) {
+      set({ error: parsed.error });
+      return false;
+    }
+    get().adopt(parsed.value);
+    get().scheduleAutosave();
+    return true;
+  },
+
   adopt: (doc: WorldDocument) => {
     set((s) => ({
       worldId: doc.id,
@@ -334,6 +353,8 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         fogSize: fogSizeOf(result.size),
         fogVersion: s.fogVersion + 1,
         places: result.places,
+        // Les routes suivaient l'ancien relief : elles ne mènent plus nulle part.
+        roads: [],
         rasterSize: result.size,
         heightVersion: s.heightVersion + 1,
         status: 'idle',

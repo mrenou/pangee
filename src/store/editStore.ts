@@ -143,6 +143,8 @@ interface EditState {
   regenerate: () => Promise<void>;
   /** Remplace le monde par un fichier, et vide de même la pile d'annulation. */
   importWorld: (file: File) => Promise<void>;
+  /** Rouvre la carte de Pangée livrée avec le site, et vide la pile d'annulation. */
+  loadDefaultWorld: () => Promise<void>;
 }
 
 const DEFAULT_RELIEF: ReliefBrush = {
@@ -362,5 +364,9 @@ export const useEditStore = create<EditState>((set, get) => ({
 
   importWorld: async (file) => {
     if (await useWorldStore.getState().importWorld(file)) get().resetHistory();
+  },
+
+  loadDefaultWorld: async () => {
+    if (await useWorldStore.getState().loadDefaultWorld()) get().resetHistory();
   },
 }));

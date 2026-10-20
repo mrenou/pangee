@@ -128,7 +128,10 @@ const migrations: Record<number, Migration> = { 1: v1ToV2, 2: v2ToV3 };
   relief.
 - Sauvegarde **debounced** après édition (quelques secondes d'inactivité, ou à la fin d'un geste de pinceau) ;
   les rasters ne sont réécrits que si leur couche a effectivement changé.
-- **Restauration au chargement de la page** : le dernier monde ouvert est rechargé automatiquement. Chaque
+- **Restauration au chargement de la page** : le dernier monde ouvert est rechargé automatiquement. Un
+  navigateur qui n'en a encore aucun ouvre la **carte de Pangée** livrée avec le site
+  (`public/default-world.pangee`, produite par `npm run default-world`), et à défaut seulement un monde
+  généré. Le bouton « Rouvrir la carte de Pangée » y ramène à tout moment. Chaque
   enregistrement note son `id` sous la clé `pangee:last-world` ; un monde importé est enregistré aussitôt
   adopté, sans attendre une première édition, pour que le rechargement le retrouve.
 - Boutons explicites d'**export** (téléchargement d'un `.pangee`) et d'**import** (glisser-déposer ou

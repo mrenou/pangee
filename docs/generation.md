@@ -6,6 +6,8 @@ Le monde de départ est produit par `src/gen/`, exécuté dans un Web Worker et 
 
 - Une seed (chaîne ou entier) plus un jeu de paramètres déterminent entièrement le monde : mêmes entrées, même planète, cellule par cellule.
 - La génération écrit uniquement en **référentiel local**, c'est-à-dire le monde tel qu'avant le Cataclysme, anneaux alignés, à `t0`. Le découpage en anneaux n'intervient jamais ici : il n'apparaît qu'au rendu et dans les couches dérivées (voir [le modèle du monde](modele-monde.md) et [le temps](temps.md)).
+- Le site s'ouvre sur une carte dessinée, pas sur une génération (voir « Import d'une carte dessinée »). La
+  génération reste le bouton « Régénérer ».
 - Le MJ régénère librement tant qu'il n'a pas édité. Dès qu'une commande d'édition a été appliquée ([éditeur](editeur.md)), la régénération affiche un avertissement explicite : elle écrase `height`, `biomeOverride`, les lieux et les routes.
 - `biomeOverride` est rempli à 0 partout : la génération ne force aucun biome, elle produit du relief.
 
@@ -164,6 +166,10 @@ contours, hachures et anticrénelages prennent la classe majoritaire de leur voi
    aux coupures. Chaque île est reliée par une `sea-route` au port le plus proche d'une autre terre.
 
 Nom du monde, graine, densité de lieux et configuration des anneaux sont des constantes en tête du script.
+
+La carte d'ouverture du site en est issue : `scripts/maps/pangee.png` devient `public/default-world.pangee`
+par `npm run default-world`. Retoucher l'image ou les constantes du script, c'est relancer cette commande et
+commiter le fichier produit.
 
 ## Budget
 

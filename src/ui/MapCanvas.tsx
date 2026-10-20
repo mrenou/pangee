@@ -199,14 +199,16 @@ export function MapCanvas() {
       // courant une fois, ici.
       pushAll(created);
 
-      // On reprend le monde laissé par la session précédente ; à défaut, on en
-      // façonne un neuf. La carte ne doit jamais s'ouvrir sur du vide.
-      void useWorldStore
-        .getState()
-        .restoreFromStorage()
-        .then((restored) => {
-          if (!restored && !cancelled) void useWorldStore.getState().regenerate();
-        });
+      // On reprend le monde laissé par la session précédente ; à défaut, la
+      // carte de Pangée livrée avec le site ; à défaut encore, on en façonne
+      // un neuf. La carte ne doit jamais s'ouvrir sur du vide.
+      void (async () => {
+        const world = useWorldStore.getState();
+        if (await world.restoreFromStorage()) return;
+        if (cancelled) return;
+        if (await world.loadDefaultWorld()) return;
+        if (!cancelled) void useWorldStore.getState().regenerate();
+      })();
     });
 
     return () => {

@@ -16,7 +16,8 @@
     "typecheck": "tsc -b --noEmit",
     "test:e2e": "playwright test",
     "bench": "vite-node scripts/bench-hydro.ts",
-    "import-image": "vite-node scripts/image-to-pangee.ts"
+    "import-image": "vite-node scripts/image-to-pangee.ts",
+    "default-world": "vite-node scripts/image-to-pangee.ts -- scripts/maps/pangee.png public/default-world.pangee"
   },
   "dependencies": {
     "comlink": "^4.4.2",
