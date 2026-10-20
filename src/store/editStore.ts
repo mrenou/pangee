@@ -29,7 +29,7 @@ import { removeRoad, setRoadKind } from '@/edit/roads';
 import type { RoadKind } from '@/model/world';
 import { useWorldStore } from '@/store/worldStore';
 
-export type Tool = 'pan' | 'relief' | 'biome' | 'place' | 'road' | 'fog';
+export type Tool = 'pan' | 'relief' | 'biome' | 'place' | 'road' | 'fog' | 'export';
 
 export const history = new History();
 

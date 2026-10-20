@@ -107,10 +107,15 @@ export function createAutosave(delayMs = AUTOSAVE_DEBOUNCE_MS) {
 /** Propose le fichier au téléchargement. Purement client, aucun envoi réseau. */
 export function downloadWorld(doc: WorldDocument): void {
   const blob = new Blob([serializeWorld(doc) as BlobPart], { type: 'application/zip' });
+  downloadBlob(blob, `${doc.name || 'pangee'}.pangee`);
+}
+
+/** Téléchargement d'un contenu produit dans le navigateur ; l'URL est révoquée aussitôt. */
+export function downloadBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `${doc.name || 'pangee'}.pangee`;
+  anchor.download = fileName;
   anchor.click();
   URL.revokeObjectURL(url);
 }

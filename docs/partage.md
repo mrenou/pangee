@@ -16,10 +16,34 @@ navigateur — voir aussi [le rendu](rendu.md) et [le format de fichier](fichier
    deux exports identiques faits à deux zooms différents donnent la même image.
 4. La texture est extraite (`renderer.extract`), convertie en `Blob` PNG et téléchargée.
 
+### Mise en œuvre
+
+| Étape          | Code                                        | Détail                                                                                  |
+| -------------- | ------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Cadrage        | outil **Image**, `src/edit/editControls.ts` | glisser un rectangle ; `rectFromCorners` le prend par le plus court chemin en longitude |
+| Plan           | `planExport`, `src/render/exportPlan.ts`    | hauteur, octets, refus motivé et largeur de repli                                       |
+| Rendu          | `exportPng`, `src/render/mapRenderer.ts`    | même scène, viewport du cadre, `RenderTexture`, `extract.canvas`                        |
+| Décorations    | `src/render/exportDecorations.ts`           | Canvas 2D sur l'image extraite                                                          |
+| Téléchargement | `downloadBlob`, `src/store/persistence.ts`  | `<nom du monde> - jour <t>.png`                                                         |
+
+Avant le rendu, tout ce qui n'est qu'un repère d'édition est retiré de la scène : cadre d'export, lieu et route
+sélectionnés, tracé en cours. Le semis des symboles reçoit un budget à la taille de l'image (le plafond écran
+de 4000 ne couvrirait que le haut d'un grand export) et renonce à sa texture figée, qui dépasserait la taille
+maximale du GPU. Tout est rétabli après coup, que l'export réussisse ou échoue.
+
+**Ornements à l'échelle de l'image.** Libellés, icônes et traits ont une taille en pixels écran. Jusqu'à
+1600 px de large, l'export les garde tels quels ; au-delà, la scène est rendue sur une largeur logique de
+1600 px puis agrandie d'un facteur `k = largeur / 1600` par la transformation du rendu, et les textes sont
+rastérisés à la résolution `k`. Les tracés vectoriels restent nets, et un export de 8000 px a l'allure d'un
+écran plutôt que des noms de dix pixels perdus dans l'image. Le niveau de détail dépend donc de la largeur
+d'export, jamais du zoom de l'écran.
+
 **Garde-fou mémoire.** Le coût est estimé avant le rendu : `outputWidth · outputHeight · 4` octets pour la
 cible, davantage avec les tampons intermédiaires. Au-delà d'un seuil (quelques centaines de Mio) ou de la
 taille de texture maximale du GPU, l'export est refusé avec une explication et une suggestion de largeur
-acceptable, plutôt que de faire planter l'onglet. Le rendu par tuiles recollées est la porte de sortie si
+acceptable, plutôt que de faire planter l'onglet. Valeurs retenues : trois copies de 4 octets par pixel
+(cible, extraction, canvas des décorations) sous 512 Mio, côté sous `MAX_TEXTURE_SIZE`, largeur sous
+8000 px. Le rendu par tuiles recollées est la porte de sortie si
 cette limite devient gênante.
 
 L'export se fait **à la date de campagne courante** : les anneaux sont dans la position qu'ils ont à `t`, donc
@@ -28,13 +52,17 @@ réexporter la même sélection produit une carte différente — c'est l'intér
 
 ## Décorations optionnelles
 
-| Décoration         | Contenu                                                          |
-| ------------------ | ---------------------------------------------------------------- |
-| Cartouche de titre | Titre libre, en police serif, encadré dans un coin               |
-| Rose des vents     | Orientation nord en haut (projection équirectangulaire)          |
-| Échelle            | Barre graduée en kilomètres, calculée depuis le rayon planétaire |
-| Date de campagne   | Jours depuis le Cataclysme, ou libellé libre                     |
-| Bordure            | Filet d'encre autour de l'image                                  |
+| Décoration         | Contenu                                                           |
+| ------------------ | ----------------------------------------------------------------- |
+| Cartouche de titre | Titre libre, en police serif, encadré dans un coin                |
+| Rose des vents     | Orientation nord en haut (projection équirectangulaire)           |
+| Échelle            | Barre graduée en kilomètres, calculée depuis le rayon planétaire  |
+| Date de campagne   | « Jour t après le Cataclysme »                                    |
+| Bordure            | Filet d'encre double autour de l'image                            |
+| Lignes de faille   | Trait aux coupures ; décoché par défaut pour une carte « propre » |
+
+Toutes se proportionnent à la plus petite dimension de l'image. Le cartouche n'apparaît que si un titre est
+saisi.
 
 L'échelle utilise `radiusKm` : un degré de latitude vaut `π · R / 180` km, un degré de longitude à la latitude
 φ vaut `π · R · cos φ / 180` km. La barre est calibrée sur la latitude médiane du rectangle et n'est donc
@@ -66,7 +94,10 @@ que la rotation l'emmène.
   sont voilées de sépia. Le voile n'apparaît que sous l'outil Brouillard, sauf si le MJ coche « Garder le
   voile avec les autres outils ». Détails de rendu dans [le rendu](rendu.md).
 - **À l'export** : les zones non révélées sont **remplacées** par le fond parchemin vierge, avec la mention
-  « Terra incognita » placée dans les grandes plages inconnues. Rien de ce qui s'y trouve n'est dessiné — ni
+  « Terra incognita » placée dans les grandes plages inconnues. Le calque de brouillard passe en mode
+  `export`, opaque, au-dessus de toutes les couches. La mention va au point le plus éloigné de tout connu
+  (transformée de distance sur une grille d'environ 96 cases, bord de l'image compté comme connu), et
+  seulement si ce point est à plus d'un sixième de la petite dimension de l'image. Rien de ce qui s'y trouve n'est dessiné — ni
   relief, ni rivières, ni lieux, ni libellés — car l'image part chez les joueurs et ne doit rien laisser
   filtrer.
 - Le bord est **adouci** : la valeur `fog`, échantillonnée en interpolation bilinéaire puis floutée sur

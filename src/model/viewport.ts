@@ -134,3 +134,42 @@ export function zoomAtPoint(v: Viewport, factor: number, anchor: ScreenPoint): V
     centerLat: zoomed.centerLat + (before.lat - after.lat),
   });
 }
+
+/**
+ * Rectangle en référentiel monde, tel que le MJ le cadre à l'écran.
+ * La longitude ouest peut être suivie d'une largeur qui franchit le méridien
+ * ±180 : un cadre peut chevaucher l'antiméridien.
+ */
+export interface WorldRect {
+  readonly lonWestWorld: number;
+  readonly latNorth: number;
+  readonly widthDeg: number;
+  readonly heightDeg: number;
+}
+
+/**
+ * Rectangle tendu entre deux coins, par le plus court chemin en longitude :
+ * c'est celui que le geste dessine à l'écran.
+ */
+export function rectFromCorners(a: GeoPoint, b: GeoPoint): WorldRect {
+  const dLon = wrapLon(b.lon - a.lon);
+  const latNorth = Math.max(a.lat, b.lat);
+  return {
+    lonWestWorld: dLon >= 0 ? wrapLon(a.lon) : wrapLon(b.lon),
+    latNorth,
+    widthDeg: Math.abs(dLon),
+    heightDeg: latNorth - Math.min(a.lat, b.lat),
+  };
+}
+
+/** Viewport qui montre exactement le rectangle, sur une image de largeur donnée. */
+export function viewportForRect(rect: WorldRect, widthPx: number): Viewport {
+  const pixelsPerDegree = widthPx / rect.widthDeg;
+  return {
+    centerLonWorld: wrapLon(rect.lonWestWorld + rect.widthDeg / 2),
+    centerLat: rect.latNorth - rect.heightDeg / 2,
+    pixelsPerDegree,
+    widthPx,
+    heightPx: Math.max(1, Math.round(rect.heightDeg * pixelsPerDegree)),
+  };
+}
