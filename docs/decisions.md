@@ -227,6 +227,23 @@ chaîne, et un statut de publication détaché de celui du commit.
 
 ---
 
+## 2026-10-20 — CI rapide : e2e répartis, vérifiés une seule fois (précise la publication)
+
+**Décidé.** Les tests de bout en bout sont répartis sur quatre runners et ne tournent que sur les PR. Sur
+`main`, seules les vérifications rapides repassent, et la publication reprend le build déjà fait. La
+protection de branche de `main` exige le check `verify`, administrateurs compris.
+
+_Pourquoi :_ une mise en ligne coûtait environ 13 min — 6 pour la PR, puis 7 pour refaire exactement la même
+vérification sur `main`. Sur un runner à deux cœurs, Playwright ne fait tourner qu'un test à la fois : les
+24 tests prenaient 5 min. Répartis sur quatre runners, ils en prennent un peu plus d'une ; ne pas les
+refaire sur un commit identique fait le reste.
+
+_Écarté :_ augmenter le nombre de workers Playwright sur un même runner (deux cœurs, déjà saturés par le rendu
+WebGL logiciel) ; garder les e2e sur `main` sans protection de branche (une mise en ligne aussi longue
+qu'avant) ; ne protéger `main` que pour les non-administrateurs (le seul contributeur est administrateur).
+
+---
+
 ## 2026-10-20 — Licence Apache-2.0
 
 **Décidé.** Le code est sous licence Apache-2.0 (`LICENSE`), avec un fichier `NOTICE` qui nomme le projet

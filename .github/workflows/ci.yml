@@ -9,8 +9,16 @@ on:
 permissions:
   contents: read
 
+# Un nouveau push sur une PR rend caduque la vérification en cours : on l'arrête.
+# Sur main, chaque commit va jusqu'au bout.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  verify:
+  # Tout ce qui est rapide : doc, lint, tests unitaires, build. Le build est fait
+  # avec le sous-chemin de GitHub Pages et sert tel quel à la publication.
+  checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -23,14 +31,67 @@ jobs:
       - run: npm run lint
       - run: npm run test
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+        env:
+          # Le site est servi depuis https://<utilisateur>.github.io/<dépôt>/
+          PANGEE_BASE: /${{ github.event.repository.name }}/
+      - if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  # Les tests de bout en bout, répartis sur quatre runners : un runner à deux
+  # cœurs n'en fait tourner qu'un à la fois. Ils ne tournent que sur les PR et à
+  # la demande : le commit qu'on pousse sur main les a déjà passés dans sa PR,
+  # ce que la protection de branche impose (check « verify » requis).
+  e2e:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - id: browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      # Le navigateur vient du cache ; les bibliothèques système, elles, sont à
+      # réinstaller sur chaque runner neuf.
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.browsers.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - run: npx playwright test --shard=${{ matrix.shard }}/4
+
+  # Statut unique, exigé par la protection de main : vert si les vérifications
+  # rapides passent et si les e2e passent — ou n'avaient pas à tourner.
+  verify:
+    needs: [checks, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bilan
+        run: |
+          echo "checks: ${{ needs.checks.result }} · e2e: ${{ needs.e2e.result }}"
+          test "${{ needs.checks.result }}" = success
+          test "${{ needs.e2e.result }}" = success -o "${{ needs.e2e.result }}" = skipped
 
   # Publication sur GitHub Pages, seulement depuis main et une fois la vérification passée :
   # un commit qui casse les tests ne part pas en ligne.
   deploy:
     needs: verify
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    # always() est nécessaire : sans lui, les e2e sautés sur main feraient sauter
+    # la publication par ricochet. C'est donc le résultat de verify qui décide.
+    if: >-
+      always() && needs.verify.result == 'success' &&
+      github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -43,19 +104,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-        env:
-          # Le site est servi depuis https://<utilisateur>.github.io/<dépôt>/
-          PANGEE_BASE: /${{ github.event.repository.name }}/
       - uses: actions/configure-pages@v6
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: dist
       - id: deployment
         uses: actions/deploy-pages@v5

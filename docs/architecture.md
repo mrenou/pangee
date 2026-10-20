@@ -135,11 +135,18 @@ Build Vite, publication GitHub Pages par GitHub Actions, sur <https://mrenou.git
 Aucune variable d'environnement sensible, aucun secret : le site est entièrement statique et
 fonctionne hors ligne une fois chargé.
 
-| Étape       | Où                                       | Détail                                                          |
-| ----------- | ---------------------------------------- | --------------------------------------------------------------- |
-| Vérifier    | job `verify`, `.github/workflows/ci.yml` | liens de doc, lint, Vitest, build, Playwright — à chaque PR     |
-| Publier     | job `deploy`, même fichier               | sur `main` seulement, après `verify` ; build avec `PANGEE_BASE` |
-| Sous-chemin | `vite.config.ts`                         | `base` lu dans `PANGEE_BASE`, `/` par défaut                    |
+| Job      | Quand                  | Détail                                                                            |
+| -------- | ---------------------- | --------------------------------------------------------------------------------- |
+| `checks` | toujours               | liens de doc, lint, Vitest, build avec `PANGEE_BASE` ; sur `main`, artefact Pages |
+| `e2e`    | PR et lancement manuel | Playwright réparti sur 4 runners (`--shard`), navigateurs en cache                |
+| `verify` | toujours               | bilan : vert si `checks` passe et si `e2e` passe ou n'avait pas à tourner         |
+| `deploy` | `main`, après `verify` | publie l'artefact de `checks`, sans rien reconstruire                             |
+
+Les e2e ne tournent pas sur `main` : un commit n'y arrive qu'après avoir passé `verify` dans sa PR. C'est la
+**protection de branche** de `main` qui le garantit, en exigeant le check `verify`, administrateurs compris ;
+publier revient alors à avancer `main` en avance rapide sur la branche vérifiée. Un nouveau push sur une PR
+annule la vérification en cours. Sous-chemin : `base` lu dans `PANGEE_BASE` par `vite.config.ts`, `/` par
+défaut.
 
 Le site est servi sous `/<dépôt>/` : `PANGEE_BASE` vaut `/pangee/` au build de publication. Aucun
 en-tête HTTP particulier n'est requis — pas de `SharedArrayBuffer`, donc pas de COOP/COEP, que GitHub
