@@ -70,8 +70,8 @@ test('scinder un anneau en ajoute un, qu on peut faire tourner, puis fusionner',
 
   // Le nouvel anneau se règle comme les autres.
   await omega.fill('-0.3');
-  await page.waitForTimeout(400);
-  expect(await canvasHash(page)).not.toBe(before);
+  // Sans délai fixe : sur un runner chargé, l'image tarde à se recomposer.
+  await expect.poll(() => canvasHash(page), { timeout: 10_000 }).not.toBe(before);
 
   // Il survit au rechargement, avec sa vitesse.
   await page.waitForTimeout(2500);
