@@ -343,21 +343,25 @@ contraire de lui, ce que le MJ ne veut pas.
 
 ---
 
-## 2026-10-21 — La carte de Pangée est rognée à l'ouest et à l'est
+## 2026-10-21 — La carte de Pangée est rognée sur ses bords
 
-**Décidé.** Le script d'import retire 7 % de la largeur de l'image à l'ouest et 17 % à l'est avant de
-l'étirer sur 360°. L'océan qu'aucune terre ne traverse, hors calottes, passe de 30 % à 6 % du tour ; les
-terres s'élargissent d'un facteur 1,32 d'est en ouest. Les lieux sont replacés sur la nouvelle grille, donc
-renommés. Voir [la génération](generation.md).
+**Décidé.** Le script d'import retire 7 % de la largeur de l'image à l'ouest et 17 % à l'est, et les
+fonds des calottes au-delà de 81° N et de 80° S, glace pleine, avant d'étirer le reste sur toute la
+planète. L'océan qu'aucune terre ne traverse, hors calottes, passe de 30 % à 8 % du tour. Rapportées au
+dessin, les terres sont élargies d'un facteur 1,34 d'est en ouest, contre 1,14 sans rognage. Les coupures
+sont placées sur le dessin et suivies dans le monde (66° y devient 73,2°). Les lieux sont replacés sur la
+nouvelle grille, donc renommés. Voir [la génération](generation.md).
 
 _Pourquoi :_ retour du MJ — l'océan des bords était trop large, les morceaux de continent y passaient
 l'essentiel de leur tour au lieu de croiser d'autres terres. Plus larges en degrés, les continents mettent
-aussi plus longtemps à se déchirer à vitesse égale.
+aussi plus longtemps à se déchirer à vitesse égale. Retirer les fonds de calotte compense une partie de
+l'étirement sans toucher à la mer.
 
-_Écarté :_ un outil « resserrer l'océan » dans l'application — il faudrait rééchantillonner toutes les
-couches locales, remapper lieux et routes et garder de quoi annuler, pour une carte unique dont le
-script se retouche en deux constantes ; garder les lieux d'avant en remappant leur longitude — le MJ
-accepte les nouveaux.
+_Écarté :_ le seul rognage est-ouest — terres élargies d'un facteur 1,49 ; retirer la bande d'océan
+austral entre 55 et 69° S, qui réduisait encore l'étirement — le MJ tient à cette mer ; un outil
+« resserrer l'océan » dans l'application — il faudrait rééchantillonner toutes les couches locales,
+remapper lieux et routes et garder de quoi annuler, pour une carte unique dont le script se retouche en
+quelques constantes ; garder les lieux d'avant en remappant leur longitude — le MJ accepte les nouveaux.
 
 ---
 
