@@ -45,6 +45,33 @@ const CROP_WEST = 0.07;
 const CROP_EAST = 0.17;
 
 /**
+ * Bandes de latitude du dessin retirées avant d'étirer le reste sur 180°, chacune `[nord, sud]`. Ce
+ * sont les fonds des calottes, de la glace pleine : les terres en sont moins aplaties que par le seul
+ * rognage est-ouest, sans perdre de mer.
+ */
+const REMOVED_BANDS_LAT: readonly (readonly [number, number])[] = [
+  [90, 81],
+  [-80, -90],
+];
+
+/** Degrés de bandes retirées au nord d'une latitude du dessin. */
+function removedNorthOf(latDrawn: number): number {
+  let deg = 0;
+  for (const [north, south] of REMOVED_BANDS_LAT)
+    deg += Math.max(0, north - Math.max(south, latDrawn));
+  return deg;
+}
+
+/** Latitude du monde d'un point du dessin, une fois les bandes retirées. */
+function worldLatOf(latDrawn: number): number {
+  const kept = 180 - removedNorthOf(-90);
+  return 90 - ((90 - latDrawn - removedNorthOf(latDrawn)) * 180) / kept;
+}
+
+/** Coupures placées sur le dessin, suivies dans le monde. */
+const DRAWN_CUTS_LAT = [66, 40, 14, -8, -30, -62];
+
+/**
  * Tous les anneaux tournent vers l'est, l'équateur en tête et les calottes en queue : deux voisins
  * ne glissent l'un contre l'autre que de 0,01 à 0,015 °/jour, un tour relatif en 66 à 99 ans, et les
  * continents restent longtemps face à face plutôt que de s'émietter en îles.
@@ -59,7 +86,7 @@ const RING_CONFIG: RingConfig = {
     { id: 'sables', name: 'Anneau des Sables', omegaDegPerDay: 0.045 },
     { id: 'austral', name: 'Calotte australe', omegaDegPerDay: 0.035 },
   ],
-  cutsLat: [66, 40, 14, -8, -30, -62],
+  cutsLat: DRAWN_CUTS_LAT.map((lat) => Math.round(worldLatOf(lat) * 10) / 10),
   t0: 0,
 };
 
@@ -182,6 +209,19 @@ function cropColumns(img: Rgb, west: number, east: number): Rgb {
     data.set(img.data.subarray((y * img.width + x0) * 3, (y * img.width + x1) * 3), y * width * 3);
   }
   return { width, height: img.height, data };
+}
+
+/** L'image privée des lignes dont le centre tombe dans une bande retirée. */
+function cropRows(img: Rgb): Rgb {
+  const rows: number[] = [];
+  for (let y = 0; y < img.height; y += 1) {
+    const lat = 90 - ((y + 0.5) / img.height) * 180;
+    if (!REMOVED_BANDS_LAT.some(([north, south]) => lat < north && lat > south)) rows.push(y);
+  }
+  const stride = img.width * 3;
+  const data = new Uint8Array(rows.length * stride);
+  rows.forEach((y, i) => data.set(img.data.subarray(y * stride, (y + 1) * stride), i * stride));
+  return { width: img.width, height: rows.length, data };
 }
 
 // --- Classification -----------------------------------------------------------------------------
@@ -892,7 +932,8 @@ function main(): void {
 
   const size = RASTER_2K;
   const { width: W, height: H } = size;
-  const img = cropColumns(readPng(readFileSync(input)), CROP_WEST, CROP_EAST);
+  const img = cropRows(cropColumns(readPng(readFileSync(input)), CROP_WEST, CROP_EAST));
+  console.log(`Coupures ${RING_CONFIG.cutsLat.join(' · ')}`);
   console.log(`Image ${img.width}×${img.height}`);
   const cls = classify(img);
   const grid = downsample(cls, lakeMask(cls, img.width, img.height), img.width, img.height, W, H);

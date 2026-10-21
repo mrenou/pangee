@@ -130,10 +130,16 @@ npm run import-image -- carte.png monde.pangee
 ```
 
 L'image est un PNG équirectangulaire (8 bits, RVB ou RVBA) couvrant toute la planète, quelle que soit sa
-taille. Ses bords ouest et est sont d'abord rognés (`CROP_WEST`, `CROP_EAST`, en parts de la largeur) pour
-resserrer l'océan qui les borde ; le reste est étiré sur 360°, ce qui élargit les terres d'est en ouest d'un
-facteur 1 / (1 − ouest − est). L'image est ensuite ramenée à 2048 × 1024. Chaque couleur de la légende devient une classe de terrain ; les
-contours, hachures et anticrénelages prennent la classe majoritaire de leur voisinage.
+taille. Elle est d'abord rognée :
+
+| Constante                | Retire                                         | Effet                                                                           |
+| ------------------------ | ---------------------------------------------- | ------------------------------------------------------------------------------- |
+| `CROP_WEST`, `CROP_EAST` | une part de la largeur, à l'ouest et à l'est   | resserre l'océan des bords ; terres élargies d'un facteur 1 / (1 − ouest − est) |
+| `REMOVED_BANDS_LAT`      | des bandes de latitude `[nord, sud]` du dessin | compense l'étirement ; le reste est étiré sur 180° de latitude                  |
+
+Les coupures sont données sur le dessin (`DRAWN_CUTS_LAT`) et converties par `worldLatOf`, pour rester sur
+les mêmes reliefs. L'image est ensuite ramenée à 2048 × 1024. Chaque couleur de la légende devient une
+classe de terrain ; les contours, hachures et anticrénelages prennent la classe majoritaire de leur voisinage.
 
 | Couleur   | Classe          | Relief                           | `biomeOverride`                                    |
 | --------- | --------------- | -------------------------------- | -------------------------------------------------- |
