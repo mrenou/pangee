@@ -20,12 +20,6 @@ const SIZES: readonly { readonly id: PlaceSize; readonly label: string }[] = [
   { id: 4, label: 'Majeur' },
 ];
 
-const RING_LABELS: Readonly<Record<Place['ringId'], string>> = {
-  north: 'nord',
-  equator: 'équatorial',
-  south: 'sud',
-};
-
 const FIELD_CLASS =
   'mt-1 w-full rounded border border-ink-soft/40 bg-parchment-dark px-2 py-1 text-sm';
 
@@ -54,6 +48,10 @@ export function PlaceInspector() {
 function PlaceForm({ place }: { readonly place: Place }) {
   const editPlace = useEditStore((s) => s.editPlace);
   const deletePlace = useEditStore((s) => s.deleteSelectedPlace);
+  // Les anneaux sont ceux du monde, nommés par le MJ, et non plus trois anneaux fixes.
+  const ringName = useWorldStore(
+    (s) => s.ringConfig.rings.find((ring) => ring.id === place.ringId)?.name,
+  );
   const [name, setName] = useState(place.name);
   const [notes, setNotes] = useState(place.notes ?? '');
 
@@ -142,7 +140,7 @@ function PlaceForm({ place }: { readonly place: Place }) {
       />
 
       <p className="mt-1 text-xs text-ink-soft">
-        Anneau {RING_LABELS[place.ringId]} · {place.lat.toFixed(1)}° de latitude
+        {ringName ?? 'Anneau inconnu'} · {place.lat.toFixed(1)}° de latitude
       </p>
 
       <button

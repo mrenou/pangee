@@ -1,4 +1,4 @@
-import type { Road, RoadKind } from '@/model/world';
+import type { RoadKind } from '@/model/world';
 import { useEditStore } from '@/store/editStore';
 import { useWorldStore } from '@/store/worldStore';
 
@@ -7,12 +7,6 @@ const KINDS: readonly { readonly id: RoadKind; readonly label: string }[] = [
   { id: 'path', label: 'Sentier' },
   { id: 'sea-route', label: 'Route maritime' },
 ];
-
-const RING_LABELS: Readonly<Record<Road['ringId'], string>> = {
-  north: 'nord',
-  equator: 'équatorial',
-  south: 'sud',
-};
 
 const FIELD_CLASS =
   'mt-1 w-full rounded border border-ink-soft/40 bg-parchment-dark px-2 py-1 text-sm';
@@ -27,6 +21,9 @@ export function RoadInspector() {
   const setKind = useEditStore((s) => s.setSelectedRoadKind);
   const deleteSelection = useEditStore((s) => s.deleteSelection);
   const road = useWorldStore((s) => s.roads.find((r) => r.id === selectedId));
+  const ringName = useWorldStore(
+    (s) => s.ringConfig.rings.find((ring) => ring.id === road?.ringId)?.name,
+  );
 
   return (
     <div className="mt-3">
@@ -73,8 +70,8 @@ export function RoadInspector() {
             ))}
           </select>
           <p className="mt-1 text-xs text-ink-soft">
-            Anneau {RING_LABELS[road.ringId]} · {road.points.length} points. Une route coupée par
-            une faille forme deux tronçons distincts.
+            {ringName ?? 'Anneau inconnu'} · {road.points.length} points. Une route coupée par une
+            faille forme deux tronçons distincts.
           </p>
           <button
             type="button"
