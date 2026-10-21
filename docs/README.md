@@ -29,6 +29,7 @@ Puis, par sujet :
 | [editeur.md](editeur.md)               | Pinceaux, lieux, routes, undo/redo, conversion écran → local              |
 | [fichier-pangee.md](fichier-pangee.md) | Format `.pangee`, migrations, autosave IndexedDB                          |
 | [partage.md](partage.md)               | Export PNG, brouillard de guerre                                          |
+| [tutoriel.md](tutoriel.md)             | Tutoriel interactif : étapes, consignes, retour au monde d'avant          |
 | [decisions.md](decisions.md)           | Journal des décisions structurantes et de ce qui a été écarté             |
 
 ## Glossaire

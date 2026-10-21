@@ -82,6 +82,7 @@ export function EditPanel() {
           <button
             key={entry.id}
             type="button"
+            data-tutorial={`tool-${entry.id}`}
             onClick={() => setTool(entry.id)}
             aria-pressed={tool === entry.id}
             className={`rounded border px-2 py-1 text-xs ${
@@ -96,113 +97,115 @@ export function EditPanel() {
       </div>
       <p className="mt-1 text-xs text-ink-soft">{hint}</p>
 
-      {tool === 'relief' && (
-        <div className="mt-3">
-          <div className="flex flex-wrap gap-1">
-            {RELIEF_MODES.map((mode) => (
-              <button
-                key={mode.id}
-                type="button"
-                onClick={() => setReliefMode(mode.id)}
-                aria-pressed={relief.mode === mode.id}
-                className={`rounded border px-2 py-1 text-xs ${
-                  relief.mode === mode.id
-                    ? 'border-ink bg-ink text-parchment'
-                    : 'border-ink-soft/40 hover:bg-parchment-dark'
-                }`}
-              >
-                {mode.label}
-              </button>
-            ))}
-          </div>
+      <div data-tutorial="tool-options">
+        {tool === 'relief' && (
+          <div className="mt-3">
+            <div className="flex flex-wrap gap-1">
+              {RELIEF_MODES.map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => setReliefMode(mode.id)}
+                  aria-pressed={relief.mode === mode.id}
+                  className={`rounded border px-2 py-1 text-xs ${
+                    relief.mode === mode.id
+                      ? 'border-ink bg-ink text-parchment'
+                      : 'border-ink-soft/40 hover:bg-parchment-dark'
+                  }`}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
 
-          <Field
-            id="brush-radius"
-            label="Rayon"
-            value={`${relief.radius.toFixed(0)} cellules`}
-            min={1}
-            max={60}
-            step={1}
-            current={relief.radius}
-            onChange={(radius) => setRelief({ radius })}
-          />
-          <Field
-            id="brush-strength"
-            label="Force"
-            value={`${relief.strengthM.toFixed(0)} m`}
-            min={5}
-            max={800}
-            step={5}
-            current={relief.strengthM}
-            onChange={(strengthM) => setRelief({ strengthM })}
-          />
-          <Field
-            id="brush-falloff"
-            label="Douceur"
-            value={`${(relief.falloff * 100).toFixed(0)} %`}
-            min={0}
-            max={1}
-            step={0.01}
-            current={relief.falloff}
-            onChange={(falloff) => setRelief({ falloff })}
-          />
-          {relief.mode === 'flatten' && (
             <Field
-              id="brush-target"
-              label="Altitude visée"
-              value={`${(relief.targetM ?? 0).toFixed(0)} m`}
-              min={-4000}
-              max={6000}
-              step={50}
-              current={relief.targetM ?? 0}
-              onChange={(targetM) => setRelief({ targetM })}
+              id="brush-radius"
+              label="Rayon"
+              value={`${relief.radius.toFixed(0)} cellules`}
+              min={1}
+              max={60}
+              step={1}
+              current={relief.radius}
+              onChange={(radius) => setRelief({ radius })}
             />
-          )}
-        </div>
-      )}
+            <Field
+              id="brush-strength"
+              label="Force"
+              value={`${relief.strengthM.toFixed(0)} m`}
+              min={5}
+              max={800}
+              step={5}
+              current={relief.strengthM}
+              onChange={(strengthM) => setRelief({ strengthM })}
+            />
+            <Field
+              id="brush-falloff"
+              label="Douceur"
+              value={`${(relief.falloff * 100).toFixed(0)} %`}
+              min={0}
+              max={1}
+              step={0.01}
+              current={relief.falloff}
+              onChange={(falloff) => setRelief({ falloff })}
+            />
+            {relief.mode === 'flatten' && (
+              <Field
+                id="brush-target"
+                label="Altitude visée"
+                value={`${(relief.targetM ?? 0).toFixed(0)} m`}
+                min={-4000}
+                max={6000}
+                step={50}
+                current={relief.targetM ?? 0}
+                onChange={(targetM) => setRelief({ targetM })}
+              />
+            )}
+          </div>
+        )}
 
-      {tool === 'biome' && (
-        <div className="mt-3">
-          <label className="block text-sm" htmlFor="biome-value">
-            Biome posé
-          </label>
-          <select
-            id="biome-value"
-            value={biomeValue}
-            onChange={(e) => setBiomeValue(Number(e.currentTarget.value))}
-            className="mt-1 w-full rounded border border-ink-soft/40 bg-parchment-dark px-2 py-1 text-sm"
-          >
-            {BIOMES.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.label}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-xs text-ink-soft">
-            « Automatique » efface le forçage et rend la main au climat.
-          </p>
+        {tool === 'biome' && (
+          <div className="mt-3">
+            <label className="block text-sm" htmlFor="biome-value">
+              Biome posé
+            </label>
+            <select
+              id="biome-value"
+              value={biomeValue}
+              onChange={(e) => setBiomeValue(Number(e.currentTarget.value))}
+              className="mt-1 w-full rounded border border-ink-soft/40 bg-parchment-dark px-2 py-1 text-sm"
+            >
+              {BIOMES.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-ink-soft">
+              « Automatique » efface le forçage et rend la main au climat.
+            </p>
 
-          <Field
-            id="biome-radius"
-            label="Rayon"
-            value={`${biomeShape.radius.toFixed(0)} cellules`}
-            min={1}
-            max={60}
-            step={1}
-            current={biomeShape.radius}
-            onChange={(radius) => setBiomeShape({ radius })}
-          />
-        </div>
-      )}
+            <Field
+              id="biome-radius"
+              label="Rayon"
+              value={`${biomeShape.radius.toFixed(0)} cellules`}
+              min={1}
+              max={60}
+              step={1}
+              current={biomeShape.radius}
+              onChange={(radius) => setBiomeShape({ radius })}
+            />
+          </div>
+        )}
 
-      {tool === 'place' && <PlaceInspector />}
-      {tool === 'creature' && <CreatureInspector />}
-      {tool === 'fog' && <FogTool />}
-      {tool === 'export' && <ExportPanel />}
+        {tool === 'place' && <PlaceInspector />}
+        {tool === 'creature' && <CreatureInspector />}
+        {tool === 'fog' && <FogTool />}
+        {tool === 'export' && <ExportPanel />}
 
-      {tool === 'road' && <RoadInspector />}
+        {tool === 'road' && <RoadInspector />}
+      </div>
 
-      <div className="mt-3 flex gap-1">
+      <div data-tutorial="undo" className="mt-3 flex gap-1">
         <button
           type="button"
           onClick={undo}
@@ -234,7 +237,7 @@ export function FilePanel() {
   const error = useWorldStore((s) => s.error);
 
   return (
-    <section className="mt-6">
+    <section data-tutorial="file" className="mt-6">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Le fichier</h2>
       <div className="mt-2 flex gap-1">
         <button

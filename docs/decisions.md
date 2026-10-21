@@ -306,6 +306,23 @@ relief.
 
 ---
 
+## 2026-10-21 — Tutoriel interactif sur le monde du MJ
+
+**Décidé.** Un tutoriel parcourt chaque fonctionnalité : il entoure l'élément concerné, l'explique
+et fait faire le geste dans l'application elle-même, sur le monde courant. Le monde est copié à
+l'ouverture ; à la sortie, le MJ choisit de le rétablir ou de garder ses essais. Les consignes sont
+des fonctions pures de deux relevés des stores, et `editStore` compte désormais les commandes
+empilées (`commandCount`). Voir [le tutoriel](tutoriel.md).
+
+_Pourquoi :_ on apprend un outil de dessin en dessinant ; un monde de démonstration séparé aurait
+demandé de dupliquer les stores ou de basculer de monde à l'entrée et à la sortie.
+
+_Écarté :_ un bac à sable chargé à part — le MJ y perdait son contexte et ses anneaux ; un
+tutoriel en texte seul ou en vidéo — rien n'y vérifie que le geste a été compris ; reconnaître un
+geste au seul nom de la dernière commande — il peut dater d'avant l'étape.
+
+---
+
 ## Points à trancher plus tard
 
 Décisions volontairement repoussées, à documenter ici quand elles seront prises :

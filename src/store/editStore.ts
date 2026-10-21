@@ -99,6 +99,11 @@ interface EditState {
   /** Le monde a-t-il reçu au moins une commande ? Conditionne l'avertissement
    * avant régénération. */
   edited: boolean;
+  /**
+   * Commandes empilées depuis l'ouverture. Sert à savoir qu'un geste a eu lieu,
+   * même s'il porte le même nom que le précédent : le tutoriel s'en sert.
+   */
+  commandCount: number;
   canUndo: boolean;
   canRedo: boolean;
   undoLabel: string | undefined;
@@ -236,6 +241,7 @@ export const useEditStore = create<EditState>((set, get) => ({
   selectedCreatureId: undefined,
   selectedPlaceId: undefined,
   edited: false,
+  commandCount: 0,
   canUndo: false,
   canRedo: false,
   undoLabel: undefined,
@@ -395,7 +401,7 @@ export const useEditStore = create<EditState>((set, get) => ({
     // celui des gestes.
     flushRingGesture();
     history.push(command);
-    set({ edited: true, ...syncFlags() });
+    set((s) => ({ edited: true, commandCount: s.commandCount + 1, ...syncFlags() }));
   },
 
   // Annuler et rétablir modifient le monde autant qu'un coup de pinceau :
@@ -465,7 +471,11 @@ function flushRingGesture(): void {
   const after = ringState(target);
 
   history.push(ringsCommand(gesture.label ?? 'anneaux réglés', gesture.before, after));
-  useEditStore.setState({ edited: true, ...syncFlags() });
+  useEditStore.setState((s) => ({
+    edited: true,
+    commandCount: s.commandCount + 1,
+    ...syncFlags(),
+  }));
   useWorldStore.getState().scheduleAutosave();
 }
 

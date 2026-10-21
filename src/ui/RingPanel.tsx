@@ -37,22 +37,24 @@ export function RingPanel() {
     <section>
       <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Le temps</h2>
 
-      <Field
-        id="tDays"
-        label="Date de campagne"
-        value={`an ${years} · ${Math.round(tDays)} j`}
-        min={0}
-        max={MAX_T_DAYS}
-        step={1}
-        current={tDays}
-        onChange={setTDays}
-      />
-      <p className="mt-1 text-xs text-ink-soft">
-        {tDays === cfg.t0
-          ? 'Le monde d’avant le Cataclysme : les anneaux sont alignés.'
-          : `Décalages : ${offsets.map((offset) => `${offset.toFixed(1)}°`).join(' · ')}`}
-      </p>
-      <div className="mt-2 flex flex-wrap items-center gap-1">
+      <div data-tutorial="date">
+        <Field
+          id="tDays"
+          label="Date de campagne"
+          value={`an ${years} · ${Math.round(tDays)} j`}
+          min={0}
+          max={MAX_T_DAYS}
+          step={1}
+          current={tDays}
+          onChange={setTDays}
+        />
+        <p className="mt-1 text-xs text-ink-soft">
+          {tDays === cfg.t0
+            ? 'Le monde d’avant le Cataclysme : les anneaux sont alignés.'
+            : `Décalages : ${offsets.map((offset) => `${offset.toFixed(1)}°`).join(' · ')}`}
+        </p>
+      </div>
+      <div data-tutorial="timelapse" className="mt-2 flex flex-wrap items-center gap-1">
         <button
           type="button"
           onClick={() => setTDays(cfg.t0)}
@@ -73,46 +75,50 @@ export function RingPanel() {
         La planète
       </h2>
 
-      <Field
-        id="sea-level"
-        label="Niveau de la mer"
-        value={`${seaLevelM.toFixed(0)} m`}
-        min={-2000}
-        max={2000}
-        step={10}
-        current={seaLevelM}
-        onChange={setSeaLevel}
-      />
-
-      <label className="mt-3 flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={showFaults}
-          onChange={(e) => setShowFaults(e.currentTarget.checked)}
-          className="accent-ink-soft"
+      <div data-tutorial="sea-level">
+        <Field
+          id="sea-level"
+          label="Niveau de la mer"
+          value={`${seaLevelM.toFixed(0)} m`}
+          min={-2000}
+          max={2000}
+          step={10}
+          current={seaLevelM}
+          onChange={setSeaLevel}
         />
-        Marquer les lignes de faille
-      </label>
+      </div>
 
-      <label className="mt-2 flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={bookStyle}
-          onChange={(e) => setBookStyle(e.currentTarget.checked)}
-          className="accent-ink-soft"
-        />
-        Habillage carte de livre
-      </label>
+      <div data-tutorial="display">
+        <label className="mt-3 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={showFaults}
+            onChange={(e) => setShowFaults(e.currentTarget.checked)}
+            className="accent-ink-soft"
+          />
+          Marquer les lignes de faille
+        </label>
 
-      <label className="mt-2 flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={animate}
-          onChange={(e) => setAnimate(e.currentTarget.checked)}
-          className="accent-ink-soft"
-        />
-        Animer l’eau, les volcans et les créatures
-      </label>
+        <label className="mt-2 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={bookStyle}
+            onChange={(e) => setBookStyle(e.currentTarget.checked)}
+            className="accent-ink-soft"
+          />
+          Habillage carte de livre
+        </label>
+
+        <label className="mt-2 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={animate}
+            onChange={(e) => setAnimate(e.currentTarget.checked)}
+            className="accent-ink-soft"
+          />
+          Animer l’eau, les volcans et les créatures
+        </label>
+      </div>
 
       <HydroStatus />
     </section>
@@ -140,13 +146,16 @@ function RingsEditor() {
   const full = cfg.rings.length >= MAX_RINGS;
 
   return (
-    <div>
+    <div data-tutorial="rings">
       {cfg.rings.map((ring, index) => {
         const omega = ring.omegaDegPerDay;
         const cut = cfg.cutsLat[index];
         return (
           <div key={ring.id}>
-            <div className="mt-3 rounded border border-ink-soft/20 p-2">
+            <div
+              data-tutorial={index === 0 ? 'ring-speed' : undefined}
+              className="mt-3 rounded border border-ink-soft/20 p-2"
+            >
               <div className="flex items-center gap-1">
                 <RingName ring={ring} />
                 <button
