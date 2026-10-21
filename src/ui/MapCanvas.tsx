@@ -349,5 +349,11 @@ export function MapCanvas() {
     }
   }, [waterVersion]);
 
-  return <div ref={hostRef} className="relative h-full flex-1 cursor-grab bg-parchment-dark" />;
+  return (
+    <div
+      ref={hostRef}
+      data-tutorial="map"
+      className="relative h-full flex-1 cursor-grab bg-parchment-dark"
+    />
+  );
 }

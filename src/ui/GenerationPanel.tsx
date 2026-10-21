@@ -15,7 +15,7 @@ export function GenerationPanel() {
   const edited = useEditStore((s) => s.edited);
 
   return (
-    <section className="mt-6">
+    <section data-tutorial="world" className="mt-6">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Le monde</h2>
 
       <label className="mt-3 block text-sm" htmlFor="seed">
