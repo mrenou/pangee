@@ -36,15 +36,28 @@ const RADIUS_KM = 6371;
 const SEA_LEVEL_M = 0;
 const PLACE_DENSITY = 0.75;
 
+/**
+ * Part de la largeur de l'image retirée à l'ouest et à l'est avant de l'étirer sur 360° : l'océan
+ * des bords était trop large, les morceaux de continent y passaient l'essentiel de leur tour. Les
+ * terres s'élargissent d'autant d'est en ouest, d'un facteur 1 / (1 − ouest − est).
+ */
+const CROP_WEST = 0.07;
+const CROP_EAST = 0.17;
+
+/**
+ * Tous les anneaux tournent vers l'est, l'équateur en tête et les calottes en queue : deux voisins
+ * ne glissent l'un contre l'autre que de 0,01 à 0,015 °/jour, un tour relatif en 66 à 99 ans, et les
+ * continents restent longtemps face à face plutôt que de s'émietter en îles.
+ */
 const RING_CONFIG: RingConfig = {
   rings: [
-    { id: 'boreal', name: 'Calotte boréale', omegaDegPerDay: 0.02 },
-    { id: 'cimes', name: 'Anneau des Cimes', omegaDegPerDay: 0.05 },
-    { id: 'lacs', name: 'Anneau des Lacs', omegaDegPerDay: -0.03 },
-    { id: 'equator', name: 'Anneau équatorial', omegaDegPerDay: 0 },
-    { id: 'jungles', name: 'Anneau des Jungles', omegaDegPerDay: 0.04 },
-    { id: 'sables', name: 'Anneau des Sables', omegaDegPerDay: -0.05 },
-    { id: 'austral', name: 'Calotte australe', omegaDegPerDay: -0.02 },
+    { id: 'boreal', name: 'Calotte boréale', omegaDegPerDay: 0.03 },
+    { id: 'cimes', name: 'Anneau des Cimes', omegaDegPerDay: 0.04 },
+    { id: 'lacs', name: 'Anneau des Lacs', omegaDegPerDay: 0.055 },
+    { id: 'equator', name: 'Anneau équatorial', omegaDegPerDay: 0.07 },
+    { id: 'jungles', name: 'Anneau des Jungles', omegaDegPerDay: 0.06 },
+    { id: 'sables', name: 'Anneau des Sables', omegaDegPerDay: 0.045 },
+    { id: 'austral', name: 'Calotte australe', omegaDegPerDay: 0.035 },
   ],
   cutsLat: [66, 40, 14, -8, -30, -62],
   t0: 0,
@@ -157,6 +170,18 @@ function readPng(bytes: Uint8Array): Rgb {
     data[i * 3 + 2] = pixels[j + 2]!;
   }
   return { width, height, data };
+}
+
+/** L'image privée de ses bords ouest et est, en parts de sa largeur. */
+function cropColumns(img: Rgb, west: number, east: number): Rgb {
+  const x0 = Math.round(img.width * west);
+  const x1 = img.width - Math.round(img.width * east);
+  const width = x1 - x0;
+  const data = new Uint8Array(width * img.height * 3);
+  for (let y = 0; y < img.height; y += 1) {
+    data.set(img.data.subarray((y * img.width + x0) * 3, (y * img.width + x1) * 3), y * width * 3);
+  }
+  return { width, height: img.height, data };
 }
 
 // --- Classification -----------------------------------------------------------------------------
@@ -867,7 +892,7 @@ function main(): void {
 
   const size = RASTER_2K;
   const { width: W, height: H } = size;
-  const img = readPng(readFileSync(input));
+  const img = cropColumns(readPng(readFileSync(input)), CROP_WEST, CROP_EAST);
   console.log(`Image ${img.width}×${img.height}`);
   const cls = classify(img);
   const grid = downsample(cls, lakeMask(cls, img.width, img.height), img.width, img.height, W, H);

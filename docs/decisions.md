@@ -323,6 +323,44 @@ geste au seul nom de la dernière commande — il peut dater d'avant l'étape.
 
 ---
 
+## 2026-10-21 — Les anneaux de Pangée tournent tous vers l'est
+
+**Décidé.** Dans la carte d'ouverture, les sept anneaux tournent dans le même sens, de 0,03 °/jour
+aux calottes à 0,07 °/jour à l'équateur. Deux voisins ne glissent plus l'un contre l'autre que de
+0,01 à 0,015 °/jour, contre 0,03 à 0,09 auparavant.
+
+| Anneau     | Boréale | Cimes | Lacs  | Équateur | Jungles | Sables | Australe |
+| ---------- | ------- | ----- | ----- | -------- | ------- | ------ | -------- |
+| ω (°/jour) | 0,03    | 0,04  | 0,055 | 0,07     | 0,06    | 0,045  | 0,035    |
+
+_Pourquoi :_ retour du MJ — avec des sens alternés, les continents se morcelaient en îles en
+quelques années. C'est l'écart entre voisins qui fixe le cisaillement à la coupure ([le temps](temps.md)) ;
+le réduire garde les terres face à face plus longtemps. Un tour relatif complet prend désormais
+66 à 99 ans au lieu de 11 à 33.
+
+_Écarté :_ garder l'équateur immobile comme repère — les anneaux voisins auraient tourné en sens
+contraire de lui, ce que le MJ ne veut pas.
+
+---
+
+## 2026-10-21 — La carte de Pangée est rognée à l'ouest et à l'est
+
+**Décidé.** Le script d'import retire 7 % de la largeur de l'image à l'ouest et 17 % à l'est avant de
+l'étirer sur 360°. L'océan qu'aucune terre ne traverse, hors calottes, passe de 30 % à 6 % du tour ; les
+terres s'élargissent d'un facteur 1,32 d'est en ouest. Les lieux sont replacés sur la nouvelle grille, donc
+renommés. Voir [la génération](generation.md).
+
+_Pourquoi :_ retour du MJ — l'océan des bords était trop large, les morceaux de continent y passaient
+l'essentiel de leur tour au lieu de croiser d'autres terres. Plus larges en degrés, les continents mettent
+aussi plus longtemps à se déchirer à vitesse égale.
+
+_Écarté :_ un outil « resserrer l'océan » dans l'application — il faudrait rééchantillonner toutes les
+couches locales, remapper lieux et routes et garder de quoi annuler, pour une carte unique dont le
+script se retouche en deux constantes ; garder les lieux d'avant en remappant leur longitude — le MJ
+accepte les nouveaux.
+
+---
+
 ## Points à trancher plus tard
 
 Décisions volontairement repoussées, à documenter ici quand elles seront prises :
